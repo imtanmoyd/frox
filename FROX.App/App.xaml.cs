@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using FROX.Config;
@@ -61,25 +63,31 @@ public partial class App : System.Windows.Application
 
     private void InitializeTrayIcon()
     {
+        // Load custom FROX icon for the system tray
+        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FROX.ico");
+        var trayIcon = File.Exists(iconPath)
+            ? new Icon(iconPath)
+            : SystemIcons.Information;
+
         _trayIcon = new NotifyIcon
         {
             Visible = true,
-            Text = "FROX",
-            Icon = SystemIcons.Information
+            Text = "FROX — Panda Companion",
+            Icon = trayIcon
         };
 
         var contextMenu = new ContextMenuStrip();
-        var showHideItem = new ToolStripMenuItem("Show / Hide");
+        var showHideItem = new ToolStripMenuItem("Show / Hide overlay");
         showHideItem.Click += (_, _) => ToggleOverlay();
 
-        var openChatItem = new ToolStripMenuItem("Open chat");
+        var openChatItem = new ToolStripMenuItem("Open chat window");
         openChatItem.Click += (_, _) =>
         {
             MainWindow?.Show();
             MainWindow?.Activate();
         };
 
-        var quitItem = new ToolStripMenuItem("Quit");
+        var quitItem = new ToolStripMenuItem("Quit FROX");
         quitItem.Click += (_, _) => Shutdown();
 
         contextMenu.Items.Add(showHideItem);

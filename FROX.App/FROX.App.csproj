@@ -24,4 +24,11 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="FROX.ico" />
+    <Content Include="FROX.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
