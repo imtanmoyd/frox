@@ -88,7 +88,14 @@ public partial class OverlayWindow : Window
 
     private void UpdateFrame()
     {
-        var sheet = _sheets.TryGetValue(_stateMachine.CurrentState, out var value) ? value : _sheets[CharacterAnimationState.Idle];
+        if (!_sheets.TryGetValue(_stateMachine.CurrentState, out var sheet))
+        {
+            if (!_sheets.TryGetValue(CharacterAnimationState.Idle, out sheet))
+            {
+                return; // No sheets loaded — nothing to display
+            }
+        }
+
         var source = SpriteSheetLoader.GetFrame(sheet, _stateMachine.CurrentFrameIndex, 64, 64);
         CharacterImage.Source = source;
     }

@@ -86,7 +86,8 @@
                            HorizontalAlignment="Right"/>
             </DockPanel>
 
-            <StackPanel Grid.Row="1"
+            <StackPanel x:Name="ChatView"
+                        Grid.Row="1"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Center"
                         MaxWidth="600">
@@ -104,7 +105,62 @@
                            TextWrapping="Wrap"/>
             </StackPanel>
 
+            <ScrollViewer x:Name="SettingsView"
+                          Grid.Row="1"
+                          Visibility="Collapsed"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="620">
+                    <TextBlock Text="Connection"
+                               Foreground="#A1A1AA"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8"/>
+                    <TextBlock Text="Provider"
+                               Foreground="#D4D4D8"
+                               Margin="0,8,0,4"/>
+                    <ComboBox x:Name="ProviderBox"
+                              SelectedValuePath="Content"
+                              SelectedValue="Offline"
+                              SelectionChanged="ProviderBox_SelectionChanged"
+                              Background="#1B1E23"
+                              Foreground="#202124">
+                        <ComboBoxItem Content="Offline"/>
+                        <ComboBoxItem Content="OpenRouter"/>
+                    </ComboBox>
+                    <TextBlock Text="OpenRouter API key (kept in memory for this session)"
+                               Foreground="#D4D4D8"
+                               Margin="0,14,0,4"/>
+                    <PasswordBox x:Name="ApiKeyBox"
+                                 Background="#1B1E23"
+                                 Foreground="White"
+                                 Padding="10,8"/>
+                    <TextBlock Text="Model"
+                               Foreground="#D4D4D8"
+                               Margin="0,14,0,4"/>
+                    <TextBox x:Name="ModelBox"
+                             Text="openai/gpt-4o-mini"
+                             Background="#1B1E23"
+                             Foreground="White"
+                             BorderBrush="#343840"
+                             Padding="10,8"/>
+                    <Button Content="Save connection settings"
+                            Width="210"
+                            Margin="0,18,0,0"
+                            HorizontalContentAlignment="Center"
+                            Click="SaveSettings_Click"/>
+                    <TextBlock x:Name="SettingsStatus"
+                               Foreground="#7ED9A5"
+                               TextWrapping="Wrap"
+                               Margin="0,12,0,0"/>
+                    <TextBlock Text="For safety, FROX never writes your API key to Git, source files, or the settings file. Rotate any key shared in chat."
+                               Foreground="#858994"
+                               TextWrapping="Wrap"
+                               Margin="0,24,0,0"/>
+                </StackPanel>
+            </ScrollViewer>
+
             <Border Grid.Row="2"
+                    x:Name="Composer"
                     Background="#1B1E23"
                     BorderBrush="#343840"
                     BorderThickness="1"

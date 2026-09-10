@@ -17,7 +17,7 @@ public sealed class IdleWatcher : IDisposable
 
     public IdleWatcher(int pollIntervalMs = 1000)
     {
-        _lastInputTicks = DateTime.UtcNow.Ticks;
+        _lastInputTicks = QueryLastInputTicks();
         _timer = new Timer(_ => RefreshState(), null, pollIntervalMs, pollIntervalMs);
     }
 
@@ -46,9 +46,38 @@ public sealed class IdleWatcher : IDisposable
             return;
         }
 
+        // Query actual system-wide last input time
+        var tickCount = QueryLastInputTicks();
+        if (tickCount > Interlocked.Read(ref _lastInputTicks))
+        {
+            Interlocked.Exchange(ref _lastInputTicks, tickCount);
+        }
+
         var idle = IsIdle;
         var state = idle ? ActivityState.Idle : ActivityState.Active;
         StateChanged?.Invoke(this, state);
+    }
+
+    private static long QueryLastInputTicks()
+    {
+        try
+        {
+            var plii = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+            if (GetLastInputInfo(ref plii))
+            {
+                // Environment.TickCount is the number of milliseconds since system start
+                var systemUptimeMs = Environment.TickCount;
+                var idleMs = systemUptimeMs - plii.dwTime;
+                var idleTicks = TimeSpan.FromMilliseconds(idleMs).Ticks;
+                return DateTime.UtcNow.Ticks - idleTicks;
+            }
+        }
+        catch
+        {
+            // Fallback on failure
+        }
+
+        return DateTime.UtcNow.Ticks;
     }
 
     public void Dispose()

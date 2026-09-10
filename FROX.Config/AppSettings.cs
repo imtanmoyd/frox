@@ -10,4 +10,7 @@ public class AppSettings
     public int IdleCheckSeconds { get; set; } = 5;
     public int AnimationFps { get; set; } = 8;
     public bool ShowBubble { get; set; } = true;
+    public string Provider { get; set; } = "Offline";
+    public string OpenRouterModel { get; set; } = "openai/gpt-4o-mini";
+    public bool PreferCloud { get; set; }
 }

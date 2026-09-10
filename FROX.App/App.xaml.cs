@@ -16,6 +16,19 @@ public partial class App : System.Windows.Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        // Catch unhandled exceptions on the UI thread
+        DispatcherUnhandledException += (_, args) =>
+        {
+            System.Windows.MessageBox.Show(
+                $"Oops! FROX encountered a problem and will close.\n\n{args.Exception.GetType().Name}: {args.Exception.Message}",
+                "FROX",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
+            args.Handled = true;
+            Shutdown();
+        };
+
         MainWindow = new MainWindow();
         MainWindow.Show();
 
@@ -24,12 +37,16 @@ public partial class App : System.Windows.Application
 
         _idleWatcher.StateChanged += (_, state) =>
         {
-            if (_overlayWindow is null)
+            // Dispatch to UI thread since IdleWatcher timer runs on a thread-pool thread
+            Dispatcher.Invoke(() =>
             {
-                return;
-            }
+                if (_overlayWindow is null)
+                {
+                    return;
+                }
 
-            _overlayWindow.SetMood(state == ActivityState.Idle ? FROX.Characters.CharacterAnimationState.Sleep : FROX.Characters.CharacterAnimationState.Idle);
+                _overlayWindow.SetMood(state == ActivityState.Idle ? FROX.Characters.CharacterAnimationState.Sleep : FROX.Characters.CharacterAnimationState.Idle);
+            });
         };
 
         InitializeTrayIcon();
