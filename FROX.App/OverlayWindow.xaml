@@ -1,0 +1,40 @@
+<Window x:Class="FROX.App.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FROX Companion"
+        Width="128"
+        Height="128"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Grid>
+        <Image x:Name="CharacterImage"
+               Width="96"
+               Height="96"
+               Stretch="None"
+               SnapsToDevicePixels="True"
+               RenderOptions.BitmapScalingMode="NearestNeighbor" />
+
+        <Border x:Name="BubbleBorder"
+                Background="#1a1a1a"
+                BorderBrush="#7ed9ff"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="8,6"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="-110,-70,0,0"
+                Visibility="Collapsed">
+            <TextBlock x:Name="BubbleText"
+                       Foreground="White"
+                       Text="You got this."
+                       TextWrapping="Wrap"
+                       MaxWidth="180" />
+        </Border>
+    </Grid>
+</Window>
