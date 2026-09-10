@@ -17,6 +17,9 @@ public partial class App : System.Windows.Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        MainWindow = new MainWindow();
+        MainWindow.Show();
+
         _overlayWindow = new OverlayWindow();
         _overlayWindow.Show();
 
@@ -56,10 +59,8 @@ public partial class App : System.Windows.Application
         var openChatItem = new ToolStripMenuItem("Open chat");
         openChatItem.Click += (_, _) =>
         {
-            _chatPanelWindow ??= new ChatPanelWindow();
-            _chatPanelWindow.Owner = Current.MainWindow;
-            _chatPanelWindow.Show();
-            _chatPanelWindow.Activate();
+            MainWindow?.Show();
+            MainWindow?.Activate();
         };
 
         var quitItem = new ToolStripMenuItem("Quit");
@@ -96,4 +97,3 @@ public partial class App : System.Windows.Application
         }
     }
 }
-
