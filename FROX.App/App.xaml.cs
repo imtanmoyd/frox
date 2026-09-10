@@ -10,7 +10,6 @@ public partial class App : System.Windows.Application
 {
     private NotifyIcon? _trayIcon;
     private OverlayWindow? _overlayWindow;
-    private ChatPanelWindow? _chatPanelWindow;
     private readonly IdleWatcher _idleWatcher = new();
 
     public static AppSettings Settings { get; } = new();
