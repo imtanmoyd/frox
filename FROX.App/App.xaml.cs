@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using FROX.Config;
@@ -63,11 +62,33 @@ public partial class App : System.Windows.Application
 
     private void InitializeTrayIcon()
     {
-        // Load custom FROX icon for the system tray
-        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FROX.ico");
-        var trayIcon = File.Exists(iconPath)
-            ? new Icon(iconPath)
-            : SystemIcons.Information;
+        // Load custom FROX icon from assembly resources for the system tray
+        Icon trayIcon;
+        try
+        {
+            var assembly = typeof(App).Assembly;
+            var resourceName = assembly.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("FROX.ico"));
+            if (resourceName is not null)
+            {
+                using var stream = assembly.GetManifestResourceStream(resourceName);
+                if (stream is not null)
+                {
+                    trayIcon = new Icon(stream);
+                }
+                else
+                {
+                    trayIcon = SystemIcons.Information;
+                }
+            }
+            else
+            {
+                trayIcon = SystemIcons.Information;
+            }
+        }
+        catch
+        {
+            trayIcon = SystemIcons.Information;
+        }
 
         _trayIcon = new NotifyIcon
         {

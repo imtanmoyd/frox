@@ -14,7 +14,27 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SetWindowIcon();
         UpdateChatStatus();
+    }
+
+    private void SetWindowIcon()
+    {
+        try
+        {
+            var assembly = typeof(App).Assembly;
+            var names = assembly.GetManifestResourceNames();
+            var icoName = names.FirstOrDefault(n => n.EndsWith("FROX.ico"));
+            if (icoName is not null)
+            {
+                var uri = new Uri("pack://application:,,,/FROX.App;component/FROX.ico", UriKind.Absolute);
+                Icon = System.Windows.Media.Imaging.BitmapFrame.Create(uri);
+            }
+        }
+        catch
+        {
+            // Fall back to default window icon
+        }
     }
 
     private void NewConversation_Click(object sender, RoutedEventArgs e)
