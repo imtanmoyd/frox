@@ -1,0 +1,915 @@
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using FROX.App.Audio;
+using FROX.Brain;
+using FROX.Config;
+using FROX.Data;
+
+// UseWindowsForms adds System.Windows.Forms / System.Drawing to the global
+// usings, which makes several names ambiguous — pin them to the WPF types.
+using Button = System.Windows.Controls.Button;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using Brush = System.Windows.Media.Brush;
+using MessageBox = System.Windows.MessageBox;
+
+namespace FROX.App;
+
+/// <summary>
+/// Main chat window â€” the chat page, settings overlay and memory overlay
+/// driven by the wireframe in MainWindow.xaml. State is persisted through
+/// <see cref="FroxDbContext"/> (chats / messages / memories) and
+/// <see cref="SecureSettingsStore"/> (profile, mode, provider, API key).
+/// </summary>
+public partial class MainWindow : Window
+{
+    private const string InputGhost = "Message FROXâ€¦";
+
+    private readonly AppSettings _settings = App.Settings;
+    private readonly SecureSettingsStore _settingsStore = new();
+    private readonly FroxDbContext _db = new();
+    private readonly MicRecorder _mic = new();
+    private readonly ConversationRouter _router = new();
+    private readonly OpenRouterClient _openRouter = new();
+
+    private readonly List<ChatItem> _allChats = new();
+    private readonly ObservableCollection<ChatItem> _recentChats = new();
+    private readonly ObservableCollection<MessageItem> _messages = new();
+    private readonly ObservableCollection<AttachmentItem> _pendingAttachments = new();
+    private readonly ObservableCollection<MemoryItem> _memories = new();
+
+    private ChatItem? _currentChat;
+    private MemoryItem? _editingMemory;
+    private Button? _activeRecordingButton;
+    private bool _isSending;
+    private bool _skipNextMicClick;
+
+    // ------------------------------------------------------------------ Core
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        DataContext = this;
+
+        _settingsStore.Load(_settings);
+        ApplySettingsToUi();
+
+        LoadChats();
+        LoadMemories();
+
+        Loaded += OnWindowLoaded;
+        Closing += OnWindowClosing;
+
+        // Push-to-talk: hold to record, release to stop.
+        MicBarButton.PreviewMouseLeftButtonDown += MicBar_Press;
+        MicBarButton.PreviewMouseLeftButtonUp += MicBar_Release;
+    }
+
+    public ObservableCollection<ChatItem> RecentChats => _recentChats;
+    public ObservableCollection<MessageItem> Messages => _messages;
+    public ObservableCollection<AttachmentItem> PendingAttachments => _pendingAttachments;
+    public ObservableCollection<MemoryItem> Memories => _memories;
+
+    private void OnWindowLoaded(object? sender, RoutedEventArgs e)
+    {
+        UpdateEmptyState();
+        ScrollToBottom();
+        MessageInput.Focus();
+    }
+
+    private void OnWindowClosing(object? sender, CancelEventArgs e)
+    {
+        _settingsStore.Save(_settings);
+        _mic.Dispose();
+    }
+// ------------------------------------------------------------------ Data
+
+    private void LoadChats()
+    {
+        foreach (var record in _db.GetChats(false))
+        {
+            var chat = new ChatItem
+            {
+                Id = record.Id,
+                Title = record.Title,
+                CreatedAt = record.CreatedAt,
+                UpdatedAt = record.UpdatedAt,
+                IsArchived = record.IsArchived,
+                Preview = record.Preview
+            };
+
+            foreach (var message in _db.GetMessages(record.Id))
+            {
+                var item = new MessageItem
+                {
+                    Id = message.Id,
+                    IsUser = message.Role == "user",
+                    SentAt = message.SentAt,
+                    Text = message.Content
+                };
+                foreach (var attachment in DeserializeAttachments(message.AttachmentsJson))
+                {
+                    item.Attachments.Add(attachment);
+                }
+                chat.Messages.Add(item);
+            }
+
+            _allChats.Add(chat);
+        }
+
+        if (_allChats.Count == 0)
+        {
+            CreateWelcomeChat();
+        }
+        else
+        {
+            var latest = _allChats.OrderByDescending(c => c.UpdatedAt).First();
+            SelectChat(latest);
+        }
+
+        RefreshRecentChats();
+        UpdateProfileUi();
+    }
+
+    private void CreateWelcomeChat()
+    {
+        var greeting = _router.RouteMessage("hello");
+        var now = DateTime.Now;
+
+        var chat = new ChatItem { Title = "Welcome to FROX ðŸ¼", CreatedAt = now, UpdatedAt = now };
+        _db.UpsertChat(chat.Id, chat.Title, greeting, false);
+
+        var message = new MessageItem { IsUser = false, Text = greeting, SentAt = now };
+        _db.AddMessage(chat.Id, "assistant", greeting, now);
+
+        chat.Messages.Add(message);
+        chat.Preview = BuildPreview(message);
+        _allChats.Add(chat);
+        SelectChat(chat);
+    }
+
+    private void SelectChat(ChatItem chat)
+    {
+        _currentChat = chat;
+        _openRouter.ResetConversation(); // conversation context is per chat
+
+        foreach (var item in _allChats)
+        {
+            item.IsActive = ReferenceEquals(item, chat);
+        }
+
+        _messages.Clear();
+        foreach (var message in chat.Messages)
+        {
+            _messages.Add(message);
+        }
+
+        RefreshChatHeader();
+        UpdateEmptyState();
+        RefreshRecentChats();
+        ScrollToBottom();
+    }
+
+    private void RefreshChatHeader()
+    {
+        if (_currentChat is null)
+        {
+            ChatTitleText.Text = "No chat selected";
+            ChatSubtitleText.Text = string.Empty;
+            return;
+        }
+
+        ChatTitleText.Text = _currentChat.Title;
+        var count = _messages.Count;
+        ChatSubtitleText.Text = $"{count} {(count == 1 ? "message" : "messages")} Â· {_currentChat.TimeLabel}";
+    }
+
+    private void UpdateEmptyState()
+    {
+        EmptyStatePanel.Visibility = _messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ScrollToBottom()
+        => MessagesScroll.ScrollToEnd();
+
+    private void RefreshRecentChats()
+    {
+        var query = SearchBox?.Text ?? string.Empty;
+        IEnumerable<ChatItem> filtered = query.Trim().Length == 0
+            ? _allChats.OrderByDescending(c => c.UpdatedAt)
+            : _allChats.Where(c =>
+                    c.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                    c.Preview.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(c => c.UpdatedAt);
+
+        _recentChats.Clear();
+        foreach (var chat in filtered)
+        {
+            _recentChats.Add(chat);
+        }
+    }
+// ------------------------------------------------------------------ Settings UI
+
+    private void ApplySettingsToUi()
+    {
+        UpdateProfileUi();
+    }
+
+    private void UpdateProfileUi()
+    {
+        var name = string.IsNullOrWhiteSpace(_settings.DisplayName) ? _settings.Username : _settings.DisplayName;
+        ProfileNameText.Text = name;
+        ProfileInitial.Text = name.Length == 0 ? "?" : name[..1].ToUpperInvariant();
+
+        var modeLabel = _settings.Mode switch
+        {
+            "Online" => "Online",
+            "Offline" => "Offline",
+            _ => "Auto"
+        };
+
+        var providerLabel = ResolveProvider() == "OpenRouter"
+            ? (string.IsNullOrWhiteSpace(_settings.OpenRouterModel) ? "OpenRouter" : _settings.OpenRouterModel)
+            : "Local panda";
+
+        StatusModeText.Text = modeLabel;
+        StatusModelText.Text = providerLabel;
+        ProfileModeText.Text = $"{modeLabel} Â· {providerLabel}";
+        StatusText.Text = $"{_allChats.Count} chats Â· {_memories.Count} memories";
+    }
+
+    private string ResolveProvider()
+    {
+        return _settings.Mode switch
+        {
+            "Online" => "OpenRouter",
+            "Offline" => "Offline",
+            // Auto: use the chosen provider whenever a key is available.
+            _ => _settings.Provider == "OpenRouter" && !string.IsNullOrWhiteSpace(_settings.ApiKey)
+                ? "OpenRouter"
+                : "Offline"
+        };
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+    {
+        var current = VisualTreeHelper.GetParent(child);
+        while (current is not null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
+    }
+
+    private static string BuildPreview(MessageItem message)
+    {
+        var text = string.IsNullOrWhiteSpace(message.Text) ? "[attachments]" : message.Text;
+        text = text.Replace("\r", " ").Replace("\n", " ");
+        return text.Length > 90 ? text[..90] + "â€¦" : text;
+    }
+
+    private static string? SerializeAttachments(ObservableCollection<AttachmentItem> attachments)
+    {
+        if (attachments.Count == 0)
+        {
+            return null;
+        }
+
+        var dtos = attachments
+            .Select(a => new AttachmentDto(a.FileName, a.FullPath, (int)a.Kind, a.SizeLabel))
+            .ToList();
+        return JsonSerializer.Serialize(dtos);
+    }
+
+    private static ObservableCollection<AttachmentItem> DeserializeAttachments(string? json)
+    {
+        var result = new ObservableCollection<AttachmentItem>();
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return result;
+        }
+
+        try
+        {
+            var dtos = JsonSerializer.Deserialize<List<AttachmentDto>>(json) ?? new List<AttachmentDto>();
+            foreach (var dto in dtos)
+            {
+                result.Add(new AttachmentItem
+                {
+                    FileName = dto.FileName,
+                    FullPath = dto.FullPath,
+                    Kind = (AttachmentKind)dto.Kind,
+                    SizeLabel = dto.SizeLabel
+                });
+            }
+        }
+        catch
+        {
+            // Corrupt attachment JSON is ignored â€” the message stays readable.
+        }
+
+        return result;
+    }
+
+    private static AttachmentItem MakeAttachment(string path)
+    {
+        var sizeLabel = "â€”";
+        try
+        {
+            var info = new FileInfo(path);
+            if (info.Exists)
+            {
+                sizeLabel = FileFormatting.FormatSize(info.Length);
+            }
+        }
+        catch
+        {
+            // Best-effort size lookup.
+        }
+
+        return new AttachmentItem
+        {
+            FileName = Path.GetFileName(path),
+            FullPath = path,
+            Kind = FileFormatting.Classify(path),
+            SizeLabel = sizeLabel
+        };
+    }
+
+    /// <summary>Small serializable snapshot of an on-disk attachment.</summary>
+    private sealed record AttachmentDto(string FileName, string FullPath, int Kind, string SizeLabel);
+// ------------------------------------------------------------------ Chat actions
+
+    private void ChatCard_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: ChatItem chat })
+        {
+            SelectChat(chat);
+        }
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        => RefreshRecentChats();
+
+    private void NewChatButton_Click(object sender, RoutedEventArgs e)
+    {
+        var chat = new ChatItem { Title = "New Chat", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now };
+        _db.UpsertChat(chat.Id, chat.Title, "No messages yet", false);
+        _allChats.Add(chat);
+        SelectChat(chat);
+        MessageInput.Focus();
+    }
+
+    private void DeleteCurrentChat_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentChat is null)
+        {
+            return;
+        }
+
+        var answer = MessageBox.Show(this, $"Delete “{_currentChat.Title}” and all of its messages?",
+            "Delete chat", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var removed = _currentChat;
+        _db.DeleteChatRecord(removed.Id);
+        _allChats.Remove(removed);
+
+        if (_allChats.Count == 0)
+        {
+            CreateWelcomeChat();
+        }
+        else if (ReferenceEquals(_currentChat, removed))
+        {
+            SelectChat(_allChats.OrderByDescending(c => c.UpdatedAt).First());
+        }
+        else
+        {
+            RefreshRecentChats();
+        }
+
+        UpdateProfileUi();
+    }
+
+    // ------------------------------------------------------------------ Window chrome
+
+    private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (e.ClickCount == 2)
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            return;
+        }
+
+        // Let the window control buttons handle their own clicks instead of dragging.
+        if (e.OriginalSource is DependencyObject source && FindVisualParent<Button>(source) is not null)
+        {
+            return;
+        }
+
+        if (WindowState == WindowState.Maximized)
+        {
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // DragMove throws while the left button is not actually pressed.
+        }
+    }
+
+    private void WindowControl_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button)
+        {
+            return;
+        }
+
+        switch (button.Tag?.ToString())
+        {
+            case "min":
+                WindowState = WindowState.Minimized;
+                break;
+            case "max":
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                break;
+            case "close":
+                Close();
+                break;
+        }
+    }
+// ------------------------------------------------------------------ Send pipeline
+
+    private ChatItem EnsureActiveChat()
+    {
+        if (_currentChat is not null && _allChats.Contains(_currentChat))
+        {
+            return _currentChat;
+        }
+
+        var chat = new ChatItem { Title = "New Chat", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now };
+        _db.UpsertChat(chat.Id, chat.Title, string.Empty, false);
+        _allChats.Add(chat);
+        SelectChat(chat);
+        return chat;
+    }
+
+    private async void SendMessage()
+    {
+        if (_isSending)
+        {
+            return;
+        }
+
+        var rawText = MessageInput.Text == InputGhost ? string.Empty : MessageInput.Text;
+        var text = rawText.Trim();
+        _currentChat = EnsureActiveChat();
+
+        if (text.Length == 0 && _pendingAttachments.Count == 0)
+        {
+            return;
+        }
+
+        MessageInput.Text = string.Empty;
+        MessageInput.Foreground = (Brush)FindResource("TextPrimaryBrush");
+
+        var userMessage = new MessageItem { IsUser = true, Text = text, SentAt = DateTime.Now };
+        foreach (var attachment in _pendingAttachments)
+        {
+            userMessage.Attachments.Add(attachment);
+        }
+        _pendingAttachments.Clear();
+
+        _messages.Add(userMessage);
+        _currentChat.Messages.Add(userMessage);
+        PersistMessage(userMessage);
+
+        _currentChat.UpdatedAt = DateTime.Now;
+        _currentChat.Title = PromoteTitle(_currentChat, text);
+        _currentChat.Preview = BuildPreview(userMessage);
+        _db.UpsertChat(_currentChat.Id, _currentChat.Title, _currentChat.Preview, _currentChat.IsArchived);
+
+        UpdateEmptyState();
+        RefreshChatHeader();
+        RefreshRecentChats();
+        ScrollToBottom();
+
+        // Park a typing placeholder while the reply is computed.
+        _isSending = true;
+        App.SetOverlayThinking(true); // panda switches to its thinking animation during chat replies
+        var typing = new MessageItem { IsUser = false, Text = "…", IsTyping = true, SentAt = DateTime.Now };
+        _messages.Add(typing);
+        _currentChat.Messages.Add(typing);
+        ScrollToBottom();
+
+        try
+        {
+            var reply = await GetReplyAsync(text);
+            typing.Text = reply;
+            typing.SentAt = DateTime.Now;
+            typing.IsTyping = false;
+            PersistMessage(typing);
+
+            _currentChat.UpdatedAt = DateTime.Now;
+            _currentChat.Preview = BuildPreview(typing);
+            _db.UpsertChat(_currentChat.Id, _currentChat.Title, _currentChat.Preview, _currentChat.IsArchived);
+        }
+        catch (Exception ex)
+        {
+            typing.Text = $"⚠️ {ex.Message}";
+            typing.SentAt = DateTime.Now;
+            typing.IsTyping = false;
+            PersistMessage(typing);
+        }
+        finally
+        {
+            _isSending = false;
+            App.SetOverlayThinking(false); // back to the panda's normal mood once the reply lands
+            RefreshChatHeader();
+            RefreshRecentChats();
+            _ = Dispatcher.BeginInvoke(ScrollToBottom);
+        }
+    }
+
+    private async Task<string> GetReplyAsync(string text)
+    {
+        if (ResolveProvider() == "OpenRouter")
+        {
+            if (string.IsNullOrWhiteSpace(_settings.ApiKey))
+            {
+                return "I'd love to help with that, but I need an API key first — open ⚙ Settings and paste your OpenRouter key. 🔑\n\n(Or switch Provider to Offline and I'll stay right here, fully local 🐼)";
+            }
+
+            return await _openRouter.SendAsync(_settings.ApiKey, _settings.OpenRouterModel, text);
+        }
+
+        return await Task.Run(() => _router.RouteMessage(text));
+    }
+
+    private static string PromoteTitle(ChatItem chat, string text)
+    {
+        if (chat.Title != "New Chat" && chat.Title != "Welcome to FROX 🐼")
+        {
+            return chat.Title;
+        }
+
+        if (text.Length == 0)
+        {
+            return chat.Title;
+        }
+
+        var candidate = text.Split('\n')[0].Trim();
+        return candidate.Length > 40 ? candidate[..40] + "…" : candidate;
+    }
+
+    private void PersistMessage(MessageItem message)
+    {
+        if (_currentChat is null)
+        {
+            return;
+        }
+
+        _db.AddMessage(
+            _currentChat.Id,
+            message.IsUser ? "user" : "assistant",
+            message.Text,
+            message.SentAt,
+            SerializeAttachments(message.Attachments));
+    }
+// ------------------------------------------------------------------ Input & attachments
+
+    private void MessageInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            SendMessage();
+            e.Handled = true;
+        }
+    }
+
+    private void MessageInput_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (MessageInput.Text == InputGhost)
+        {
+            MessageInput.Text = string.Empty;
+        }
+        MessageInput.Foreground = (Brush)FindResource("TextPrimaryBrush");
+    }
+
+    private void MessageInput_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (MessageInput.Text.Length == 0)
+        {
+            MessageInput.Text = InputGhost;
+            MessageInput.Foreground = (Brush)FindResource("TextFaintBrush");
+        }
+    }
+
+    private void SendMessage_Click(object sender, RoutedEventArgs e)
+        => SendMessage();
+
+    private void AttachFiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Attach media or documents",
+            Multiselect = true,
+            Filter = "Media & documents|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp;*.ico;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg;*.mp4;*.webm;*.mkv;*.mov;*.avi;*.pdf;*.doc;*.docx;*.txt;*.md;*.csv;*.xlsx;*.pptx|All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        foreach (var file in dialog.FileNames)
+        {
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                _pendingAttachments.Add(MakeAttachment(file));
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ Workspace
+
+    private void WorkspaceButton_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FROX");
+        try
+        {
+            Directory.CreateDirectory(folder);
+            Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true });
+        }
+        catch
+        {
+            MessageBox.Show(this, $"Couldn't open the workspace folder:\n{folder}",
+                "FROX", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    // ------------------------------------------------------------------ Settings overlay
+
+    private void OpenSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        UsernameBox.Text = _settings.Username;
+        DisplayNameBox.Text = _settings.DisplayName;
+        ModeCombo.SelectedIndex = _settings.Mode switch
+        {
+            "Offline" => 1,
+            "Online" => 2,
+            _ => 0
+        };
+        ProviderCombo.SelectedIndex = _settings.Provider == "OpenRouter" ? 1 : 0;
+        ModelBox.Text = _settings.OpenRouterModel;
+        ApiKeyBox.Password = _settings.ApiKey ?? string.Empty;
+        SettingsOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CloseSettingsOverlay_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void SaveSettings_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Username = UsernameBox.Text.Trim();
+        _settings.DisplayName = string.IsNullOrWhiteSpace(DisplayNameBox.Text)
+            ? _settings.Username
+            : DisplayNameBox.Text.Trim();
+        _settings.Mode = ModeCombo.SelectedIndex switch
+        {
+            1 => "Offline",
+            2 => "Online",
+            _ => "Auto"
+        };
+        _settings.Provider = ProviderCombo.SelectedIndex == 1 ? "OpenRouter" : "Offline";
+        _settings.OpenRouterModel = ModelBox.Text.Trim();
+
+        var key = ApiKeyBox.Password.Trim();
+        _settings.ApiKey = key.Length == 0 ? null : key;
+
+        _settingsStore.Save(_settings);
+        UpdateProfileUi();
+        SettingsOverlay.Visibility = Visibility.Collapsed;
+    }
+// ------------------------------------------------------------------ Memory overlay
+
+    private void OpenMemoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        LoadMemories();
+        MemoryOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void LoadMemories()
+    {
+        _memories.Clear();
+        foreach (var record in _db.GetMemories())
+        {
+            _memories.Add(new MemoryItem
+            {
+                Id = record.Id,
+                Title = record.Title,
+                Content = record.Content,
+                CreatedAt = record.CreatedAt,
+                UpdatedAt = record.UpdatedAt
+            });
+        }
+
+        var noun = _memories.Count == 1 ? "memory" : "memories";
+        MemorySubtitleText.Text = $"{_memories.Count} {noun} · FROX remembers what matters to you";
+        UpdateProfileUi();
+    }
+
+    private void CloseMemoryOverlay_Click(object sender, RoutedEventArgs e)
+    {
+        CancelMemoryEdit();
+        MemoryOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void NewMemory_Click(object sender, RoutedEventArgs e)
+    {
+        _editingMemory = null;
+        MemoryTitleBox.Text = string.Empty;
+        MemoryContentBox.Text = string.Empty;
+        MemoryEditorPanel.Visibility = Visibility.Visible;
+        MemoryTitleBox.Focus();
+    }
+
+    private void EditMemory_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not MemoryItem item)
+        {
+            return;
+        }
+
+        _editingMemory = item;
+        MemoryTitleBox.Text = item.Title;
+        MemoryContentBox.Text = item.Content;
+        MemoryEditorPanel.Visibility = Visibility.Visible;
+        MemoryTitleBox.Focus();
+    }
+
+    private void SaveMemory_Click(object sender, RoutedEventArgs e)
+    {
+        var id = _editingMemory?.Id ?? Guid.NewGuid();
+        var title = MemoryTitleBox.Text.Trim();
+        var content = MemoryContentBox.Text.Trim();
+
+        if (title.Length == 0)
+        {
+            title = content.Length == 0
+                ? "Untitled memory"
+                : content[..Math.Min(32, content.Length)];
+        }
+
+        _db.SaveMemory(id, title, content);
+        CancelMemoryEdit();
+        LoadMemories();
+    }
+
+    private void CancelMemoryEdit_Click(object sender, RoutedEventArgs e)
+        => CancelMemoryEdit();
+
+    private void CancelMemoryEdit()
+    {
+        _editingMemory = null;
+        MemoryEditorPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void DeleteMemory_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not MemoryItem item)
+        {
+            return;
+        }
+
+        var answer = MessageBox.Show(this, $"Delete “{item.Title}”?",
+            "Delete memory", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _db.DeleteMemory(item.Id);
+        LoadMemories();
+    }
+// ------------------------------------------------------------------ Voice
+
+    private void VoiceNote_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button)
+        {
+            return;
+        }
+
+        if (_mic.IsRecording)
+        {
+            StopRecording();
+        }
+        else
+        {
+            StartRecording(button);
+        }
+    }
+
+    private void StartRecording(Button button)
+    {
+        if (_mic.Start())
+        {
+            _activeRecordingButton = button;
+            button.Content = "⏹";
+            button.ToolTip = "Recording — click again to stop";
+        }
+        else
+        {
+            MessageBox.Show(this,
+                "Couldn't access a microphone. Make sure one is connected and not already in use.",
+                "FROX", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void StopRecording()
+    {
+        var path = _mic.Stop();
+        _activeRecordingButton?.Dispatcher.Invoke(() =>
+        {
+            if (_activeRecordingButton is not null)
+            {
+                _activeRecordingButton.Content = _activeRecordingButton.Name == "MicBarButton" ? "🎙" : "🎤";
+                _activeRecordingButton.ToolTip = _activeRecordingButton.Name == "MicBarButton"
+                    ? "Microphone (hold to talk)"
+                    : "Voice note (record)";
+            }
+        });
+        _activeRecordingButton = null;
+
+        if (path is not null)
+        {
+            _pendingAttachments.Add(MakeAttachment(path));
+        }
+    }
+
+    // Push-to-talk: hold the bottom bar mic to record, release to stop.
+    private void MicBar_Press(object sender, MouseButtonEventArgs e)
+    {
+        _skipNextMicClick = true;
+        if (_mic.IsRecording)
+        {
+            StopRecording();
+        }
+        else
+        {
+            StartRecording(MicBarButton);
+        }
+    }
+
+    private void MicBar_Release(object sender, MouseButtonEventArgs e)
+    {
+        _skipNextMicClick = true;
+        if (_mic.IsRecording && _activeRecordingButton == MicBarButton)
+        {
+            StopRecording();
+        }
+    }
+
+    private void MicButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_skipNextMicClick)
+        {
+            _skipNextMicClick = false;
+            return;
+        }
+
+        if (_mic.IsRecording)
+        {
+            StopRecording();
+        }
+        else
+        {
+            StartRecording(MicBarButton);
+        }
+    }
+}

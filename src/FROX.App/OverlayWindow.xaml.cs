@@ -78,12 +78,17 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        _sheets[CharacterAnimationState.Idle] = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "PandaWave.png"));
-        _sheets[CharacterAnimationState.ReactHappy] = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "PandaEating.png"));
-        _sheets[CharacterAnimationState.Dance] = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "PandaWave.png"));
-        _sheets[CharacterAnimationState.ReactConfused] = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "PandaEating.png"));
-        _sheets[CharacterAnimationState.Sleep] = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "PandaEating.png"));
-        _sheets[CharacterAnimationState.Sit] = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "Bambu.png"));
+        var idle = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "panda-idle-sitting.png"));
+        var sleeping = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "panda-idle-sleeping.png"));
+        var thinking = SpriteSheetLoader.LoadSheet(Path.Combine(assetRoot, "panda-thinking-forchatting.png"));
+
+        _sheets[CharacterAnimationState.Idle] = idle;
+        _sheets[CharacterAnimationState.Sit] = idle;
+        _sheets[CharacterAnimationState.Dance] = idle;
+        _sheets[CharacterAnimationState.Sleep] = sleeping;
+        _sheets[CharacterAnimationState.Thinking] = thinking;
+        _sheets[CharacterAnimationState.ReactHappy] = thinking;
+        _sheets[CharacterAnimationState.ReactConfused] = thinking;
     }
 
     private void UpdateFrame()
@@ -96,7 +101,7 @@ public partial class OverlayWindow : Window
             }
         }
 
-        var source = SpriteSheetLoader.GetFrame(sheet, _stateMachine.CurrentFrameIndex, 64, 64);
+        var source = SpriteSheetLoader.GetFrame(sheet, _stateMachine.CurrentFrameIndex, 64, 85);
         CharacterImage.Source = source;
     }
 

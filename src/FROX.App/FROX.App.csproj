@@ -7,6 +7,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- Run as x64 so RID-specific native assets (e_sqlite3.dll) are copied to output. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <!-- Build directly into the repo root so FROX.App.exe lives at D:\Projects\frox\FROX -->
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\PandaFree\PandaFree\*.png">
+    <Content Include="..\..\assets\PandaAssets\*.png">
       <Link>PandaAssets\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

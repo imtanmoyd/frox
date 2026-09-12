@@ -7,29 +7,32 @@ public enum CharacterAnimationState
     Sit,
     Dance,
     ReactHappy,
-    ReactConfused
+    ReactConfused,
+    Thinking
 }
 
 public sealed class AnimationStateMachine
 {
     private readonly Dictionary<CharacterAnimationState, int> _frameCounts = new()
     {
-        [CharacterAnimationState.Idle] = 12,
-        [CharacterAnimationState.Sleep] = 2,
+        [CharacterAnimationState.Idle] = 16,
+        [CharacterAnimationState.Sleep] = 16,
         [CharacterAnimationState.Sit] = 1,
-        [CharacterAnimationState.Dance] = 6,
-        [CharacterAnimationState.ReactHappy] = 3,
-        [CharacterAnimationState.ReactConfused] = 3
+        [CharacterAnimationState.Dance] = 16,
+        [CharacterAnimationState.ReactHappy] = 16,
+        [CharacterAnimationState.ReactConfused] = 16,
+        [CharacterAnimationState.Thinking] = 16
     };
 
     private readonly Dictionary<CharacterAnimationState, int> _fps = new()
     {
-        [CharacterAnimationState.Idle] = 8,
-        [CharacterAnimationState.Sleep] = 1,
+        [CharacterAnimationState.Idle] = 10,
+        [CharacterAnimationState.Sleep] = 2,
         [CharacterAnimationState.Sit] = 1,
-        [CharacterAnimationState.Dance] = 8,
-        [CharacterAnimationState.ReactHappy] = 6,
-        [CharacterAnimationState.ReactConfused] = 6
+        [CharacterAnimationState.Dance] = 12,
+        [CharacterAnimationState.ReactHappy] = 10,
+        [CharacterAnimationState.ReactConfused] = 10,
+        [CharacterAnimationState.Thinking] = 8
     };
 
     public CharacterAnimationState CurrentState { get; private set; } = CharacterAnimationState.Idle;

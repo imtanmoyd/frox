@@ -125,6 +125,19 @@ public partial class App : System.Windows.Application
         };
     }
 
+    /// <summary>Shows the panda's "thinking/chatting" animation while a reply is being generated.</summary>
+    public static void SetOverlayThinking(bool thinking)
+    {
+        if (Current is not App app)
+        {
+            return;
+        }
+
+        app._overlayWindow?.SetMood(thinking
+            ? FROX.Characters.CharacterAnimationState.Thinking
+            : FROX.Characters.CharacterAnimationState.Idle);
+    }
+
     private void ToggleOverlay()
     {
         if (_overlayWindow is null)

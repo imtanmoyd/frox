@@ -1,12 +1,44 @@
-bin/
-obj/
-publish/
+# IDE / tooling
 .vs/
 .idea/
 *.user
 *.suo
+*.userprefs
+
+# Build intermediates (Sdk-style projects)
+bin/
+obj/
+publish/
+
+# Built FROX.App output (FROX.App outputs directly into the repo root)
+/FROX.App.exe
+/FROX.App.dll
+/FROX.App.pdb
+/FROX.App.deps.json
+/FROX.App.runtimeconfig.json
+/*.dll
+/*.pdb
+/*.deps.json
+/*.runtimeconfig.json
+/PandaAssets/
+
+# Self-contained .NET runtime dump if one ever lands in the repo root
+/*.exe
+/cs/
+/de/
+/es/
+/fr/
+/it/
+/ja/
+/ko/
+/pl/
+/pt-BR/
+/ru/
+/tr/
+/zh-Hans/
+/zh-Hant/
+
+# Local SQLite database / state
 *.db
 *.db-shm
 *.db-wal
-*.pdb
-*.userprefs
