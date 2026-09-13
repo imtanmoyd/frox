@@ -146,20 +146,20 @@
         </Storyboard>
 
         <Storyboard x:Key="BlinkStoryboard" RepeatBehavior="Forever">
-            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="LeftEyeScale"
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftEyeScale"
                                            Storyboard.TargetProperty="ScaleY"
                                            RepeatBehavior="5x">
-                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0"/>
-                <DiscreteObjectKeyFrame Value="0.1" KeyTime="0:0:0.4"/>
-                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0.5"/>
-            </ObjectAnimationUsingKeyFrames>
-            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RightEyeScale"
+                <DiscreteDoubleKeyFrame Value="1" KeyTime="0:0:0"/>
+                <DiscreteDoubleKeyFrame Value="0.1" KeyTime="0:0:0.4"/>
+                <DiscreteDoubleKeyFrame Value="1" KeyTime="0:0:0.5"/>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightEyeScale"
                                            Storyboard.TargetProperty="ScaleY"
                                            RepeatBehavior="5x">
-                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0"/>
-                <DiscreteObjectKeyFrame Value="0.1" KeyTime="0:0:0.4"/>
-                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0.5"/>
-            </ObjectAnimationUsingKeyFrames>
+                <DiscreteDoubleKeyFrame Value="1" KeyTime="0:0:0"/>
+                <DiscreteDoubleKeyFrame Value="0.1" KeyTime="0:0:0.4"/>
+                <DiscreteDoubleKeyFrame Value="1" KeyTime="0:0:0.5"/>
+            </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
         <Storyboard x:Key="TalkStoryboard" RepeatBehavior="2x">
@@ -218,26 +218,7 @@
                                      BorderThickness="0"
                                      FontSize="13"
                                      VerticalContentAlignment="Center"
-                                     CaretBrush="{StaticResource TextPrimaryBrush}">
-                                <TextBox.Style>
-                                    <Style TargetType="TextBox">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="TextBox">
-                                                    <Grid>
-                                                        <TextBlock Text="Search or ask..."
-                                                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                                                   FontSize="13"
-                                                                   VerticalAlignment="Center"
-                                                                   Visibility="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NullOrEmptyToVisibilityConverter}, ConverterParameter=true}"/>
-                                                        <ScrollViewer x:Name="PART_ContentHost"/>
-                                                    </Grid>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </TextBox.Style>
-                            </TextBox>
+                                     CaretBrush="{StaticResource TextPrimaryBrush}"/>
                         </Grid>
                     </Border>
 
@@ -353,31 +334,8 @@
                                          VerticalContentAlignment="Center"
                                          KeyDown="MessageInput_KeyDown"
                                          GotKeyboardFocus="MessageInput_GotKeyboardFocus"
-                                         LostKeyboardFocus="MessageInput_LostKeyboardFocus">
-                                    <TextBox.Style>
-                                        <Style TargetType="TextBox">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="TextBox">
-                                                        <Border Background="{TemplateBinding Background}"
-                                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                                CornerRadius="9">
-                                                            <Grid Margin="{TemplateBinding Padding}">
-                                                                <TextBlock Text="Message FROX…"
-                                                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                                                           FontSize="14"
-                                                                           VerticalAlignment="Center"
-                                                                           Visibility="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NullOrEmptyToVisibilityConverter}, ConverterParameter=true}"/>
-                                                                <ScrollViewer x:Name="PART_ContentHost"/>
-                                                            </Grid>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </TextBox.Style>
-                                </TextBox>
+                                         LostKeyboardFocus="MessageInput_LostKeyboardFocus"
+                                         Style="{StaticResource AppTextBoxStyle}"/>
 
                                 <!-- Attachment menu keeps file context separate from skills. -->
                                 <Button x:Name="AttachmentMenuButton" Grid.Column="1" Content="+" Width="36" Height="36"
