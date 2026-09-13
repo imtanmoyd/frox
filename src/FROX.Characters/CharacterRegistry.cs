@@ -42,9 +42,9 @@ public sealed class CharacterRegistry
         var installed = GetInstalledCharacters();
         return installed.FirstOrDefault() ?? new CharacterProfile
         {
-            Id = "panda",
-            DisplayName = "Panda",
-            PersonalityBase = "gentle, encouraging, playful"
+            Id = "bot",
+            DisplayName = "FROX",
+            PersonalityBase = "warm, focused, encouraging"
         };
     }
 }

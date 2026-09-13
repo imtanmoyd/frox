@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -7,17 +8,20 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
+using System.Windows.Threading;
+using Microsoft.Win32;
 using FROX.App.Audio;
 using FROX.Brain;
 using FROX.Config;
 using FROX.Data;
-
-// UseWindowsForms adds System.Windows.Forms / System.Drawing to the global
-// usings, which makes several names ambiguous — pin them to the WPF types.
 using Button = System.Windows.Controls.Button;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using Brush = System.Windows.Media.Brush;
 using MessageBox = System.Windows.MessageBox;
+using Path = System.IO.Path;
 
 namespace FROX.App;
 
@@ -49,8 +53,15 @@ public partial class MainWindow : Window
     private Button? _activeRecordingButton;
     private bool _isSending;
     private bool _skipNextMicClick;
+    private bool _sidebarCollapsed;
 
-    // ------------------------------------------------------------------ Core
+    // Bot character animation fields
+    private readonly DispatcherTimer _thinkingEyeTimer = new();
+    private readonly DispatcherTimer _talkingMouthTimer = new();
+    private bool _mouthOpen;
+    private const double LeftEyeBaseX = 18;
+    private const double RightEyeBaseX = 34;
+    private const double EyeBaseY = 22;
 
     public MainWindow()
     {
@@ -69,6 +80,10 @@ public partial class MainWindow : Window
         // Push-to-talk: hold to record, release to stop.
         MicBarButton.PreviewMouseLeftButtonDown += MicBar_Press;
         MicBarButton.PreviewMouseLeftButtonUp += MicBar_Release;
+
+        // Resource storyboards target named elements in the window namescope. They
+        // are intentionally not started from the constructor because that can
+        // race namescope initialization during application startup.
     }
 
     public ObservableCollection<ChatItem> RecentChats => _recentChats;
@@ -81,14 +96,69 @@ public partial class MainWindow : Window
         UpdateEmptyState();
         ScrollToBottom();
         MessageInput.Focus();
+        ((Storyboard)FindResource("FloatStoryboard")).Begin(this, true);
+        ((Storyboard)FindResource("BlinkStoryboard")).Begin(this, true);
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers is not (ModifierKeys.Control or ModifierKeys.Windows))
+            return;
+
+        switch (e.Key)
+        {
+            case Key.N:
+                NewChatButton_Click(this, new RoutedEventArgs());
+                break;
+            case Key.OemComma:
+                OpenSettingsButton_Click(this, new RoutedEventArgs());
+                break;
+            case Key.M:
+                OpenMemoryButton_Click(this, new RoutedEventArgs());
+                break;
+            case Key.F:
+                SearchBox.Focus();
+                SearchBox.SelectAll();
+                break;
+            case Key.B:
+                _settings.BotVisible = !_settings.BotVisible;
+                ApplyBotSettings();
+                break;
+            case Key.S:
+                ToggleSidebar_Click(this, new RoutedEventArgs());
+                break;
+            case Key.W:
+            case Key.K:
+                DeleteCurrentChat_Click(this, new RoutedEventArgs());
+                break;
+            case Key.Q:
+                Close();
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+    }
+
+    private void ToggleSidebar_Click(object sender, RoutedEventArgs e)
+    {
+        _sidebarCollapsed = !_sidebarCollapsed;
+        SidebarPanel.Width = _sidebarCollapsed ? 48 : 256;
+        SidebarContent.Visibility = _sidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
         _settingsStore.Save(_settings);
         _mic.Dispose();
+
+        // Stop bot character timers
+        _thinkingEyeTimer.Stop();
+        _talkingMouthTimer.Stop();
     }
-// ------------------------------------------------------------------ Data
+
+    // ------------------------------------------------------------------ Data
 
     private void LoadChats()
     {
@@ -139,17 +209,12 @@ public partial class MainWindow : Window
 
     private void CreateWelcomeChat()
     {
-        var greeting = _router.RouteMessage("hello");
         var now = DateTime.Now;
 
-        var chat = new ChatItem { Title = "Welcome to FROX ðŸ¼", CreatedAt = now, UpdatedAt = now };
-        _db.UpsertChat(chat.Id, chat.Title, greeting, false);
-
-        var message = new MessageItem { IsUser = false, Text = greeting, SentAt = now };
-        _db.AddMessage(chat.Id, "assistant", greeting, now);
-
-        chat.Messages.Add(message);
-        chat.Preview = BuildPreview(message);
+        // A first-run chat is deliberately empty: it presents the landing-state
+        // composer instead of injecting a message before the user starts.
+        var chat = new ChatItem { Title = "New Chat", CreatedAt = now, UpdatedAt = now, Preview = "No messages yet" };
+        _db.UpsertChat(chat.Id, chat.Title, chat.Preview, false);
         _allChats.Add(chat);
         SelectChat(chat);
     }
@@ -192,7 +257,14 @@ public partial class MainWindow : Window
 
     private void UpdateEmptyState()
     {
-        EmptyStatePanel.Visibility = _messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var isEmpty = _messages.Count == 0;
+        EmptyStatePanel.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
+        ComposerHost.Margin = isEmpty
+            ? new Thickness(24, 0, 24, 240)
+            : new Thickness(24, 0, 24, 20);
+        EmptyStatePanel.Margin = isEmpty
+            ? new Thickness(0, 220, 0, 0)
+            : new Thickness(0);
     }
 
     private void ScrollToBottom()
@@ -214,11 +286,43 @@ public partial class MainWindow : Window
             _recentChats.Add(chat);
         }
     }
-// ------------------------------------------------------------------ Settings UI
+
+    // ------------------------------------------------------------------ Settings UI
 
     private void ApplySettingsToUi()
     {
         UpdateProfileUi();
+        ApplyBotSettings();
+    }
+
+    private void ApplyBotSettings()
+    {
+        var size = Math.Clamp(_settings.BotSize, 40, 80);
+        BotCharacterContainer.Width = size;
+        BotCharacterContainer.Height = size;
+        BotCharacterContainer.Opacity = Math.Clamp(_settings.BotOpacity, 0.6, 1.0);
+        BotCharacterContainer.Visibility = _settings.BotVisible ? Visibility.Visible : Visibility.Collapsed;
+
+        BotBottomRight.IsChecked = _settings.BotPosition == "bottom-right";
+        BotBottomLeft.IsChecked = _settings.BotPosition == "bottom-left";
+        BotTopRight.IsChecked = _settings.BotPosition == "top-right";
+        BotTopLeft.IsChecked = _settings.BotPosition == "top-left";
+
+        BotCharacterContainer.HorizontalAlignment =
+            _settings.BotPosition.EndsWith("right", StringComparison.OrdinalIgnoreCase)
+                ? System.Windows.HorizontalAlignment.Right
+                : System.Windows.HorizontalAlignment.Left;
+        BotCharacterContainer.VerticalAlignment =
+            _settings.BotPosition.StartsWith("top", StringComparison.OrdinalIgnoreCase)
+                ? System.Windows.VerticalAlignment.Top
+                : System.Windows.VerticalAlignment.Bottom;
+        BotCharacterContainer.Margin = _settings.BotPosition switch
+        {
+            "bottom-left" => new Thickness(24, 0, 0, 80),
+            "top-right" => new Thickness(0, 80, 24, 0),
+            "top-left" => new Thickness(24, 80, 0, 0),
+            _ => new Thickness(0, 0, 24, 80)
+        };
     }
 
     private void UpdateProfileUi()
@@ -236,10 +340,13 @@ public partial class MainWindow : Window
 
         var providerLabel = ResolveProvider() == "OpenRouter"
             ? (string.IsNullOrWhiteSpace(_settings.OpenRouterModel) ? "OpenRouter" : _settings.OpenRouterModel)
-            : "Local panda";
+            : "Local";
 
         StatusModeText.Text = modeLabel;
         StatusModelText.Text = providerLabel;
+        SidebarModeText.Text = modeLabel;
+        SidebarModelText.Text = providerLabel;
+        SidebarStatusText.Text = $"{_allChats.Count} chats · {_memories.Count} memories";
         ProfileModeText.Text = $"{modeLabel} Â· {providerLabel}";
         StatusText.Text = $"{_allChats.Count} chats Â· {_memories.Count} memories";
     }
@@ -263,9 +370,7 @@ public partial class MainWindow : Window
         while (current is not null)
         {
             if (current is T match)
-            {
                 return match;
-            }
             current = VisualTreeHelper.GetParent(current);
         }
         return null;
@@ -281,9 +386,7 @@ public partial class MainWindow : Window
     private static string? SerializeAttachments(ObservableCollection<AttachmentItem> attachments)
     {
         if (attachments.Count == 0)
-        {
             return null;
-        }
 
         var dtos = attachments
             .Select(a => new AttachmentDto(a.FileName, a.FullPath, (int)a.Kind, a.SizeLabel))
@@ -295,9 +398,7 @@ public partial class MainWindow : Window
     {
         var result = new ObservableCollection<AttachmentItem>();
         if (string.IsNullOrWhiteSpace(json))
-        {
             return result;
-        }
 
         try
         {
@@ -348,7 +449,8 @@ public partial class MainWindow : Window
 
     /// <summary>Small serializable snapshot of an on-disk attachment.</summary>
     private sealed record AttachmentDto(string FileName, string FullPath, int Kind, string SizeLabel);
-// ------------------------------------------------------------------ Chat actions
+
+    // ------------------------------------------------------------------ Chat actions
 
     private void ChatCard_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
@@ -373,16 +475,12 @@ public partial class MainWindow : Window
     private void DeleteCurrentChat_Click(object sender, RoutedEventArgs e)
     {
         if (_currentChat is null)
-        {
             return;
-        }
 
         var answer = MessageBox.Show(this, $"Delete “{_currentChat.Title}” and all of its messages?",
             "Delete chat", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (answer != MessageBoxResult.Yes)
-        {
             return;
-        }
 
         var removed = _currentChat;
         _db.DeleteChatRecord(removed.Id);
@@ -409,9 +507,7 @@ public partial class MainWindow : Window
     private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left)
-        {
             return;
-        }
 
         if (e.ClickCount == 2)
         {
@@ -421,14 +517,10 @@ public partial class MainWindow : Window
 
         // Let the window control buttons handle their own clicks instead of dragging.
         if (e.OriginalSource is DependencyObject source && FindVisualParent<Button>(source) is not null)
-        {
             return;
-        }
 
         if (WindowState == WindowState.Maximized)
-        {
             return;
-        }
 
         try
         {
@@ -443,9 +535,7 @@ public partial class MainWindow : Window
     private void WindowControl_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button)
-        {
             return;
-        }
 
         switch (button.Tag?.ToString())
         {
@@ -460,14 +550,13 @@ public partial class MainWindow : Window
                 break;
         }
     }
-// ------------------------------------------------------------------ Send pipeline
+
+    // ------------------------------------------------------------------ Send pipeline
 
     private ChatItem EnsureActiveChat()
     {
         if (_currentChat is not null && _allChats.Contains(_currentChat))
-        {
             return _currentChat;
-        }
 
         var chat = new ChatItem { Title = "New Chat", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now };
         _db.UpsertChat(chat.Id, chat.Title, string.Empty, false);
@@ -479,18 +568,14 @@ public partial class MainWindow : Window
     private async void SendMessage()
     {
         if (_isSending)
-        {
             return;
-        }
 
         var rawText = MessageInput.Text == InputGhost ? string.Empty : MessageInput.Text;
         var text = rawText.Trim();
         _currentChat = EnsureActiveChat();
 
         if (text.Length == 0 && _pendingAttachments.Count == 0)
-        {
             return;
-        }
 
         MessageInput.Text = string.Empty;
         MessageInput.Foreground = (Brush)FindResource("TextPrimaryBrush");
@@ -518,7 +603,7 @@ public partial class MainWindow : Window
 
         // Park a typing placeholder while the reply is computed.
         _isSending = true;
-        App.SetOverlayThinking(true); // panda switches to its thinking animation during chat replies
+        SetBotThinking(); // Start thinking animation
         var typing = new MessageItem { IsUser = false, Text = "…", IsTyping = true, SentAt = DateTime.Now };
         _messages.Add(typing);
         _currentChat.Messages.Add(typing);
@@ -546,7 +631,7 @@ public partial class MainWindow : Window
         finally
         {
             _isSending = false;
-            App.SetOverlayThinking(false); // back to the panda's normal mood once the reply lands
+            SetBotIdle(); // Return to idle state
             RefreshChatHeader();
             RefreshRecentChats();
             _ = Dispatcher.BeginInvoke(ScrollToBottom);
@@ -559,7 +644,7 @@ public partial class MainWindow : Window
         {
             if (string.IsNullOrWhiteSpace(_settings.ApiKey))
             {
-                return "I'd love to help with that, but I need an API key first — open ⚙ Settings and paste your OpenRouter key. 🔑\n\n(Or switch Provider to Offline and I'll stay right here, fully local 🐼)";
+                return "I'd love to help with that, but I need an API key first — open ⚙ Settings and paste your OpenRouter key. 🔑\n\n(Or switch Provider to Offline and I'll stay right here, fully local)";
             }
 
             return await _openRouter.SendAsync(_settings.ApiKey, _settings.OpenRouterModel, text);
@@ -570,15 +655,11 @@ public partial class MainWindow : Window
 
     private static string PromoteTitle(ChatItem chat, string text)
     {
-        if (chat.Title != "New Chat" && chat.Title != "Welcome to FROX 🐼")
-        {
+        if (chat.Title != "New Chat" && chat.Title != "Welcome to FROX 👋")
             return chat.Title;
-        }
 
         if (text.Length == 0)
-        {
             return chat.Title;
-        }
 
         var candidate = text.Split('\n')[0].Trim();
         return candidate.Length > 40 ? candidate[..40] + "…" : candidate;
@@ -587,9 +668,7 @@ public partial class MainWindow : Window
     private void PersistMessage(MessageItem message)
     {
         if (_currentChat is null)
-        {
             return;
-        }
 
         _db.AddMessage(
             _currentChat.Id,
@@ -598,7 +677,8 @@ public partial class MainWindow : Window
             message.SentAt,
             SerializeAttachments(message.Attachments));
     }
-// ------------------------------------------------------------------ Input & attachments
+
+    // ------------------------------------------------------------------ Input & attachments
 
     private void MessageInput_KeyDown(object sender, KeyEventArgs e)
     {
@@ -640,15 +720,16 @@ public partial class MainWindow : Window
         };
 
         if (dialog.ShowDialog(this) != true)
-        {
             return;
-        }
 
         foreach (var file in dialog.FileNames)
         {
             if (!string.IsNullOrWhiteSpace(file))
             {
-                _pendingAttachments.Add(MakeAttachment(file));
+                var attachment = MakeAttachment(file);
+                // Generate thumbnail for image attachments
+                attachment.GenerateThumbnail();
+                _pendingAttachments.Add(attachment);
             }
         }
     }
@@ -685,6 +766,9 @@ public partial class MainWindow : Window
         ProviderCombo.SelectedIndex = _settings.Provider == "OpenRouter" ? 1 : 0;
         ModelBox.Text = _settings.OpenRouterModel;
         ApiKeyBox.Password = _settings.ApiKey ?? string.Empty;
+        ShowCharacterToggle.IsChecked = _settings.BotVisible;
+        BotSizeSlider.Value = _settings.BotSize;
+        BotOpacitySlider.Value = _settings.BotOpacity * 100;
         SettingsOverlay.Visibility = Visibility.Visible;
     }
 
@@ -710,12 +794,21 @@ public partial class MainWindow : Window
 
         var key = ApiKeyBox.Password.Trim();
         _settings.ApiKey = key.Length == 0 ? null : key;
+        _settings.BotVisible = ShowCharacterToggle.IsChecked == true;
+        _settings.BotSize = (int)Math.Round(BotSizeSlider.Value);
+        _settings.BotOpacity = BotOpacitySlider.Value / 100.0;
+        _settings.BotPosition = BotBottomLeft.IsChecked == true ? "bottom-left"
+            : BotTopRight.IsChecked == true ? "top-right"
+            : BotTopLeft.IsChecked == true ? "top-left"
+            : "bottom-right";
 
         _settingsStore.Save(_settings);
+        ApplyBotSettings();
         UpdateProfileUi();
         SettingsOverlay.Visibility = Visibility.Collapsed;
     }
-// ------------------------------------------------------------------ Memory overlay
+
+    // ------------------------------------------------------------------ Memory overlay
 
     private void OpenMemoryButton_Click(object sender, RoutedEventArgs e)
     {
@@ -760,10 +853,8 @@ public partial class MainWindow : Window
 
     private void EditMemory_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not MemoryItem item)
-        {
+        if (GetMemoryFromSender(sender) is not { } item)
             return;
-        }
 
         _editingMemory = item;
         MemoryTitleBox.Text = item.Title;
@@ -801,29 +892,34 @@ public partial class MainWindow : Window
 
     private void DeleteMemory_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not MemoryItem item)
-        {
+        if (GetMemoryFromSender(sender) is not { } item)
             return;
-        }
 
         var answer = MessageBox.Show(this, $"Delete “{item.Title}”?",
             "Delete memory", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (answer != MessageBoxResult.Yes)
-        {
             return;
-        }
 
         _db.DeleteMemory(item.Id);
         LoadMemories();
     }
-// ------------------------------------------------------------------ Voice
+
+    private static MemoryItem? GetMemoryFromSender(object sender)
+    {
+        if (sender is FrameworkElement { DataContext: MemoryItem item })
+            return item;
+
+        return (sender as FrameworkElement)?.Parent is ContextMenu { PlacementTarget: FrameworkElement { DataContext: MemoryItem menuItem } }
+            ? menuItem
+            : null;
+    }
+
+    // ------------------------------------------------------------------ Voice
 
     private void VoiceNote_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button)
-        {
             return;
-        }
 
         if (_mic.IsRecording)
         {
@@ -911,5 +1007,99 @@ public partial class MainWindow : Window
         {
             StartRecording(MicBarButton);
         }
+    }
+
+    private void Attachment_Click(object sender, RoutedEventArgs e)
+    {
+        AttachFiles_Click(sender, e);
+    }
+
+    private void AttachmentMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button)
+            return;
+
+        menu.PlacementTarget = button;
+        menu.IsOpen = true;
+    }
+
+    private void MemoryMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button)
+            return;
+
+        menu.PlacementTarget = button;
+        menu.IsOpen = true;
+    }
+
+    private void SkillMenu_Click(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show(this,
+            "Choose a skill from your configured capabilities.\n\nAvailable: General assistant",
+            "Skills", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void EditOptions_Click(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show(this,
+            "Attach files or use the microphone to add more context to your message.",
+            "Message options",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    // ------------------------------------------------------------------ Bot character animation control
+
+    private void SetBotThinking()
+    {
+        // Stop any existing talking animation
+        _talkingMouthTimer.Stop();
+
+        // Start thinking eye wander: move eyes side to side every 700ms
+        _thinkingEyeTimer.Stop();
+        _thinkingEyeTimer.Interval = TimeSpan.FromMilliseconds(700);
+        int phase = 0;
+        _thinkingEyeTimer.Tick += (s, e) =>
+        {
+            double off = phase switch { 1 => -4, 2 => 4, _ => 0 };
+            Canvas.SetLeft(LeftEye, LeftEyeBaseX + off);
+            Canvas.SetLeft(RightEye, RightEyeBaseX + off);
+            phase = (phase + 1) % 3;
+        };
+        _thinkingEyeTimer.Start();
+
+        // Set mouth to thinking (straight line)
+        BotMouth.Data = Geometry.Parse("M 18,32 Q 24,32 30,32");
+    }
+
+    private void SetBotTalking()
+    {
+        // Stop thinking eye wander
+        _thinkingEyeTimer.Stop();
+        Canvas.SetLeft(LeftEye, LeftEyeBaseX);
+        Canvas.SetLeft(RightEye, RightEyeBaseX);
+
+        // Start talking mouth animation: open/close every 120ms
+        _talkingMouthTimer.Stop();
+        _talkingMouthTimer.Interval = TimeSpan.FromMilliseconds(120);
+        _mouthOpen = false;
+        _talkingMouthTimer.Tick += (s, e) =>
+        {
+            _mouthOpen = !_mouthOpen;
+            BotMouth.Data = _mouthOpen
+                ? Geometry.Parse("M 18,32 Q 24,36 30,32") // Down curve
+                : Geometry.Parse("M 18,32 Q 24,28 30,32"); // Up curve
+        };
+        _talkingMouthTimer.Start();
+    }
+
+    private void SetBotIdle()
+    {
+        // Stop all timers and reset to idle state
+        _thinkingEyeTimer.Stop();
+        _talkingMouthTimer.Stop();
+        Canvas.SetLeft(LeftEye, LeftEyeBaseX);
+        Canvas.SetLeft(RightEye, RightEyeBaseX);
+        BotMouth.Data = Geometry.Parse("M 18,32 Q 24,32 30,32"); // Idle mouth
     }
 }

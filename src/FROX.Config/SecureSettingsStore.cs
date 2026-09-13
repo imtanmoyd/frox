@@ -35,6 +35,10 @@ public sealed class SecureSettingsStore
             ["mode"] = settings.Mode,
             ["model"] = settings.OpenRouterModel,
             ["apiKey"] = string.IsNullOrWhiteSpace(settings.ApiKey) ? null : Protect(settings.ApiKey!),
+            ["botVisible"] = settings.BotVisible.ToString(),
+            ["botPosition"] = settings.BotPosition,
+            ["botSize"] = settings.BotSize.ToString(),
+            ["botOpacity"] = settings.BotOpacity.ToString(System.Globalization.CultureInfo.InvariantCulture),
         };
 
         try
@@ -64,13 +68,31 @@ public sealed class SecureSettingsStore
             settings.DisplayName = GetString(root, "displayName", settings.DisplayName);
             settings.Provider = GetString(root, "provider", settings.Provider);
             settings.Mode = GetString(root, "mode", settings.Mode);
-settings.OpenRouterModel = GetString(root, "model", settings.OpenRouterModel);
+            settings.OpenRouterModel = GetString(root, "model", settings.OpenRouterModel);
 
             var protectedKey = GetString(root, "apiKey", null);
             if (!string.IsNullOrWhiteSpace(protectedKey))
             {
                 settings.ApiKey = Unprotect(protectedKey!);
             }
+
+            // Bot character
+            var botVisibleStr = GetString(root, "botVisible", null);
+            if (bool.TryParse(botVisibleStr, out var botVisible))
+                settings.BotVisible = botVisible;
+
+            var botPos = GetString(root, "botPosition", null);
+            if (!string.IsNullOrWhiteSpace(botPos))
+                settings.BotPosition = botPos;
+
+            var botSizeStr = GetString(root, "botSize", null);
+            if (int.TryParse(botSizeStr, out var botSize))
+                settings.BotSize = Math.Clamp(botSize, 40, 80);
+
+            var botOpacityStr = GetString(root, "botOpacity", null);
+            if (double.TryParse(botOpacityStr, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var botOpacity))
+                settings.BotOpacity = Math.Clamp(botOpacity, 0.6, 1.0);
         }
         catch
         {

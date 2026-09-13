@@ -4,13 +4,13 @@ namespace FROX.Config;
 
 public class AppSettings
 {
-    public string CharacterId { get; set; } = "panda";
+    public string CharacterId { get; set; } = "bot";
     public string Theme { get; set; } = "Dark";
     public bool LaunchOnStartup { get; set; }
     public bool IdleTrackingEnabled { get; set; } = true;
     public bool MusicDetectionEnabled { get; set; } = true;
     public int IdleCheckSeconds { get; set; } = 5;
-    public int AnimationFps { get; set; } = 8;
+    public int AnimationFps { get; set; } = 60;
     public bool ShowBubble { get; set; } = true;
 
     // ---------- Profile ----------
@@ -37,4 +37,17 @@ public class AppSettings
     /// </summary>
     [JsonIgnore]
     public string? ApiKey { get; set; }
+
+    // ---------- Bot character ----------
+    /// <summary>Whether the floating bot overlay is shown.</summary>
+    public bool BotVisible { get; set; } = true;
+
+    /// <summary>Corner anchor: bottom-right | bottom-left | top-right | top-left</summary>
+    public string BotPosition { get; set; } = "bottom-right";
+
+    /// <summary>Render size in pixels (40–80).</summary>
+    public int BotSize { get; set; } = 64;
+
+    /// <summary>Opacity 0.6–1.0</summary>
+    public double BotOpacity { get; set; } = 1.0;
 }

@@ -13,29 +13,22 @@
         <local:NullOrEmptyToVisibilityConverter x:Key="NullOrEmptyToVisibilityConverter"/>
 
         <!-- ===== Color palette (dark) ===== -->
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0F131B"/>
-        <SolidColorBrush x:Key="PanelBrush" Color="#151A25"/>
-        <SolidColorBrush x:Key="SidebarBrush" Color="#12161F"/>
-        <SolidColorBrush x:Key="CardBrush" Color="#1B2230"/>
-        <SolidColorBrush x:Key="CardHoverBrush" Color="#222B3D"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#273044"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#EAF0FA"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#97A3BC"/>
-        <SolidColorBrush x:Key="TextFaintBrush" Color="#5D6A85"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#F87171"/>
-        <SolidColorBrush x:Key="SuccessBrush" Color="#34D399"/>
-        <SolidColorBrush x:Key="WarningBrush" Color="#FBBF24"/>
-        <SolidColorBrush x:Key="ScrimBrush" Color="#660A0D14"/>
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0A0A"/>
+        <SolidColorBrush x:Key="PanelBrush" Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="SidebarBrush" Color="#141414"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="CardHoverBrush" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9A9A9A"/>
+        <SolidColorBrush x:Key="TextFaintBrush" Color="#6B6B6B"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="ScrimBrush" Color="#B3000000"/>
 
-        <LinearGradientBrush x:Key="AccentBrush" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#4E7CFF" Offset="0"/>
-            <GradientStop Color="#8B5CF6" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="AccentBrushMuted" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#3E6BFF" Offset="0"/>
-            <GradientStop Color="#7C4CE0" Offset="1"/>
-        </LinearGradientBrush>
+        <SolidColorBrush x:Key="AccentBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="AccentBrushMuted" Color="#2A2A2A"/>
 
         <!-- ===== Base text ===== -->
         <Style TargetType="TextBlock">
@@ -72,7 +65,7 @@
                                     <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <Border Background="#3A465F" CornerRadius="4"/>
+                                                <Border Background="#4A4A4A" CornerRadius="4"/>
                                             </ControlTemplate>
                                         </Thumb.Template>
                                     </Thumb>
@@ -144,7 +137,7 @@
                                 <Setter TargetName="Bdr" Property="Background" Value="{StaticResource CardHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bdr" Property="Background" Value="#2A3549"/>
+                                <Setter TargetName="Bdr" Property="Background" Value="#2A2A2A"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -171,10 +164,48 @@
                                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bdr" Property="Background" Value="#2A3549"/>
+                                <Setter TargetName="Bdr" Property="Background" Value="#2A2A2A"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToggleSwitchStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Track"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12">
+                            <Ellipse x:Name="Thumb"
+                                     Width="18"
+                                     Height="18"
+                                     HorizontalAlignment="Left"
+                                     Margin="2"
+                                     Fill="{StaticResource TextSecondaryBrush}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Thumb" Property="Fill" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Track" Property="Opacity" Value="0.88"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -197,7 +228,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bdr" Property="Background" Value="#2A3448"/>
+                                <Setter TargetName="Bdr" Property="Background" Value="#2A2A2A"/>
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -210,7 +241,8 @@
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Background" Value="#E64C4C"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#0A0A0A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="16,8"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -244,7 +276,7 @@
             <Setter Property="Padding" Value="10,7"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="SelectionBrush" Value="#4E7CFF"/>
+            <Setter Property="SelectionBrush" Value="#555555"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -256,10 +288,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#4E7CFF"/>
+                                <Setter TargetName="Bdr" Property="BorderBrush" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#3A4A6B"/>
+                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#555555"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -306,10 +338,10 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#4E7CFF"/>
+                                <Setter TargetName="Bdr" Property="BorderBrush" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#3A4A6B"/>
+                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#555555"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -336,7 +368,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Bdr" Property="BorderBrush" Value="#4E7CFF"/>
+                                <Setter TargetName="Bdr" Property="BorderBrush" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

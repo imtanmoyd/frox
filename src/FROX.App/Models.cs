@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace FROX.App;
 
@@ -116,6 +117,35 @@ public sealed class AttachmentItem
         AttachmentKind.Document => "Document",
         _ => "File",
     };
+
+    /// <summary>
+    /// Generates a thumbnail for the attachment if supported.
+    /// Currently supports image files.
+    /// </summary>
+    public void GenerateThumbnail()
+    {
+        if (Kind == AttachmentKind.Image && !string.IsNullOrEmpty(FullPath) && System.IO.File.Exists(FullPath))
+        {
+            try
+            {
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.DecodePixelWidth = 120; // Thumbnail width
+                bitmap.UriSource = new Uri(FullPath);
+                bitmap.EndInit();
+                bitmap.Freeze();
+                Thumbnail = bitmap;
+            }
+            catch
+            {
+                // If thumbnail generation fails, leave it as null
+                Thumbnail = null;
+            }
+        }
+        // For other file types, we could add more thumbnail generators here
+        // (e.g., for PDFs, videos, etc.) using appropriate libraries
+    }
 }
 
 /// <summary>A memory card shown in the Memory overlay.</summary>

@@ -3,36 +3,110 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:FROX.App"
         mc:Ignorable="d"
-        Title="FROX — Panda Companion"
-        Width="1240" Height="820"
-        MinWidth="1020" MinHeight="660"
+        Title="FROX"
+        Width="1200" Height="800"
+        MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         FontFamily="Segoe UI"
-        TextOptions.TextFormattingMode="Display">
+        TextOptions.TextFormattingMode="Display"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="UserBubbleBrush" Color="#23324F"/>
-        <SolidColorBrush x:Key="AssistantBubbleBrush" Color="#1C2536"/>
-        <SolidColorBrush x:Key="CardHoverBrush" Color="#232C3E"/>
-        <SolidColorBrush x:Key="ScrimBrush" Color="#7F0A0F14"/>
+        <!-- Color Scheme -->
+        <SolidColorBrush x:Key="BackgroundPrimaryBrush" Color="#0A0A0A"/>
+        <SolidColorBrush x:Key="BackgroundSecondaryBrush" Color="#141414"/>
+        <SolidColorBrush x:Key="BackgroundTertiaryBrush" Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#E8E8E8"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#ffffff"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9A9A9A"/>
+        <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6B6B6B"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#2A2A2A"/>
 
-        <!-- Chip shown for files / voice notes attached to a message. -->
+        <!-- Brushes for specific elements -->
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0A0A0A"/>
+        <SolidColorBrush x:Key="SidebarBrush" Color="#141414"/>
+        <SolidColorBrush x:Key="PanelBrush" Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="CardHoverBrush" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="ScrimBrush" Color="#B3000000"/>
+        <SolidColorBrush x:Key="UserBubbleBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="AssistantBubbleBrush" Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="BotGlowBrush" Color="#00E5FF"/>
+
+        <!-- Converters -->
+        <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+
+        <!-- Chat Bubble Template (without avatars) -->
+        <DataTemplate x:Key="MessageBubbleTemplate">
+            <StackPanel Margin="0,0,0,14">
+                <!-- User message : right aligned, accent-tinted bubble. -->
+                <StackPanel Visibility="{Binding IsUser, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            HorizontalAlignment="Right" MaxWidth="620">
+                    <Border Background="{StaticResource UserBubbleBrush}" CornerRadius="18" Padding="12,10">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Attachments}" ItemTemplate="{DynamicResource AttachmentChipTemplate}"/>
+                            <TextBlock Text="{Binding Text}" Foreground="#0A0A0A" TextWrapping="Wrap" FontSize="13" LineHeight="20"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding TimeLabel}" FontSize="9.5" Foreground="{StaticResource TextTertiaryBrush}"
+                               HorizontalAlignment="Right" Margin="0,4,4,0"/>
+                </StackPanel>
+
+                <!-- FROX messages use the small geometric bot avatar. -->
+                <Grid Visibility="{Binding IsUser, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                      HorizontalAlignment="Left" MaxWidth="620">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border Width="32" Height="32" CornerRadius="16" Background="White" Margin="0,2,8,0">
+                        <Image Source="pack://application:,,,/Assets/FroxLogo.png" Stretch="UniformToFill" RenderTransformOrigin="0.5,0.5">
+                            <Image.RenderTransform><ScaleTransform ScaleX="1.8" ScaleY="1.8"/></Image.RenderTransform>
+                        </Image>
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <Border Background="{StaticResource AssistantBubbleBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="16" Padding="16,12">
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding Attachments}" ItemTemplate="{DynamicResource AttachmentChipTemplate}"/>
+                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14" LineHeight="20"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{Binding TimeLabel}" FontSize="10" Foreground="{StaticResource TextTertiaryBrush}" Margin="4,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- Attachment Chip Template -->
         <DataTemplate x:Key="AttachmentChipTemplate">
             <Border Background="{StaticResource CardBrush}" CornerRadius="8" Padding="8,5" Margin="0,0,0,6"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding KindGlyph}" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <StackPanel Width="150">
+                    <!-- Thumbnail for images -->
+                    <Border Width="32" Height="32" Margin="0,0,8,0" Background="{StaticResource BackgroundTertiaryBrush}"
+                            CornerRadius="4">
+                        <StackPanel>
+                            <Image Source="{Binding Thumbnail}" Width="28" Height="28" Stretch="UniformToFill"
+                                   Visibility="{Binding Thumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+                            <TextBlock Text="{Binding KindGlyph}" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                       Visibility="{Binding Thumbnail, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel>
                         <TextBlock Text="{Binding FileName}" FontSize="11" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding SizeLabel}" FontSize="9.5" Foreground="{StaticResource TextFaintBrush}"/>
+                        <TextBlock Text="{Binding SizeLabel}" FontSize="9.5" Foreground="{StaticResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
         </DataTemplate>
+
+        <!-- Recent Chat Template -->
         <DataTemplate x:Key="RecentChatTemplate">
             <Border x:Name="Card" Margin="2,3" Padding="10,9" CornerRadius="9" Background="Transparent"
                     BorderBrush="Transparent" BorderThickness="1"
@@ -48,7 +122,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="1" Text="{Binding TimeLabel}" FontSize="10"
-                               Foreground="{StaticResource TextFaintBrush}" Margin="10,0,0,0"/>
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="10,0,0,0"/>
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Preview}" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -56,444 +130,692 @@
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsActive}" Value="True">
                     <Setter TargetName="Card" Property="Background" Value="{StaticResource CardHoverBrush}"/>
-                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource TextPrimaryBrush}"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-        <!-- One chat bubble (user + assistant variants). -->
-        <DataTemplate x:Key="MessageBubbleTemplate">
-            <StackPanel Margin="0,0,0,14">
-                <!-- User message : right aligned, accent-tinted bubble. -->
-                <StackPanel Visibility="{Binding IsUser, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            HorizontalAlignment="Right" MaxWidth="620">
-                    <Border Background="{StaticResource UserBubbleBrush}" CornerRadius="16,16,4,16" Padding="13,10">
-                        <StackPanel>
-                            <ItemsControl ItemsSource="{Binding Attachments}" ItemTemplate="{StaticResource AttachmentChipTemplate}"/>
-                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13" LineHeight="20"/>
-                        </StackPanel>
-                    </Border>
-                    <TextBlock Text="{Binding TimeLabel}" FontSize="9.5" Foreground="{StaticResource TextFaintBrush}"
-                               HorizontalAlignment="Right" Margin="0,4,4,0"/>
-                </StackPanel>
 
-                <!-- Assistant message : left aligned, panda avatar. -->
-                <StackPanel Visibility="{Binding IsUser, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
-                            Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Border Width="30" Height="30" CornerRadius="15" Background="{StaticResource AccentBrush}"
-                            Margin="0,0,9,0" VerticalAlignment="Top">
-                        <TextBlock Text="🐼" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <Border Background="{StaticResource AssistantBubbleBrush}" BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1" CornerRadius="4,16,16,16" Padding="13,10" MaxWidth="520">
-                        <StackPanel>
-                            <ItemsControl ItemsSource="{Binding Attachments}" ItemTemplate="{StaticResource AttachmentChipTemplate}"/>
-                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13" LineHeight="20"/>
-                        </StackPanel>
-                    </Border>
-                    <TextBlock Text="{Binding TimeLabel}" FontSize="9.5" Foreground="{StaticResource TextFaintBrush}"
-                               VerticalAlignment="Bottom" Margin="4,6,0,0"/>
-                </StackPanel>
-            </StackPanel>
-        </DataTemplate>
+        <!-- Bot Character Animations -->
+        <Storyboard x:Key="FloatStoryboard" RepeatBehavior="Forever">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="BotFloatTransform"
+                                           Storyboard.TargetProperty="Y">
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:0"/>
+                <LinearDoubleKeyFrame Value="-5" KeyTime="0:0:1.5"/>
+                <LinearDoubleKeyFrame Value="0" KeyTime="0:0:3"/>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+
+        <Storyboard x:Key="BlinkStoryboard" RepeatBehavior="Forever">
+            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="LeftEyeScale"
+                                           Storyboard.TargetProperty="ScaleY"
+                                           RepeatBehavior="5x">
+                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0"/>
+                <DiscreteObjectKeyFrame Value="0.1" KeyTime="0:0:0.4"/>
+                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0.5"/>
+            </ObjectAnimationUsingKeyFrames>
+            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RightEyeScale"
+                                           Storyboard.TargetProperty="ScaleY"
+                                           RepeatBehavior="5x">
+                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0"/>
+                <DiscreteObjectKeyFrame Value="0.1" KeyTime="0:0:0.4"/>
+                <DiscreteObjectKeyFrame Value="1" KeyTime="0:0:0.5"/>
+            </ObjectAnimationUsingKeyFrames>
+        </Storyboard>
+
+        <Storyboard x:Key="TalkStoryboard" RepeatBehavior="2x">
+            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="BotMouth"
+                                           Storyboard.TargetProperty="Data">
+                <DiscreteObjectKeyFrame Value="M 18,32 Q 24,32 30,32" KeyTime="0:0:0"/>  <!-- Idle -->
+                <DiscreteObjectKeyFrame Value="M 18,32 Q 24,36 30,32" KeyTime="0:0:0.2"/>  <!-- Talking: down curve -->
+                <DiscreteObjectKeyFrame Value="M 18,32 Q 24,28 30,32" KeyTime="0:0:0.4"/>  <!-- Talking: up curve -->
+                <DiscreteObjectKeyFrame Value="M 18,32 Q 24,32 30,32" KeyTime="0:0:0.6"/>  <!-- Idle -->
+            </ObjectAnimationUsingKeyFrames>
+        </Storyboard>
     </Window.Resources>
-    <Grid>
-        <Border x:Name="MainScreen" Grid.ZIndex="10" Background="{StaticResource AppBackgroundBrush}" CornerRadius="12" Margin="8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
 
-                <!-- ==== Top bar : brand + search + window controls ==== -->
-                <Border Grid.Row="0" Background="{StaticResource SidebarBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
-                        CornerRadius="12,12,0,0" MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
-                    <Grid Margin="14,10">
+    <Grid>
+        <!-- Main Container -->
+        <Border Background="{StaticResource AppBackgroundBrush}" CornerRadius="12" Margin="8">
+        <DockPanel LastChildFill="True">
+
+            <!-- Title Bar (Custom, Frameless) -->
+            <Border DockPanel.Dock="Top" Background="{StaticResource AppBackgroundBrush}" Height="48" CornerRadius="12,12,0,0"
+                    MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Logo and Title -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <Button Content="☰" Style="{StaticResource IconButtonStyle}" ToolTip="Toggle sidebar (Ctrl+S)" Click="ToggleSidebar_Click"/>
+                        <Border Width="32" Height="32" Background="White" CornerRadius="7" ClipToBounds="True">
+                            <Image Source="pack://application:,,,/Assets/FroxLogo.png" Stretch="UniformToFill" RenderTransformOrigin="0.5,0.5">
+                                <Image.RenderTransform><ScaleTransform ScaleX="1.8" ScaleY="1.8"/></Image.RenderTransform>
+                            </Image>
+                        </Border>
+                        <TextBlock Text="FROX" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"
+                                   Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Search -->
+                    <Border Grid.Column="1" Background="{StaticResource BackgroundTertiaryBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Height="32" Width="280" HorizontalAlignment="Center" Padding="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="🔍" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="SearchBox"
+                                     Grid.Column="1"
+                                     TextChanged="SearchBox_TextChanged"
+                                     ToolTip="Search chats (Ctrl+F)"
+                                     Background="Transparent"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderThickness="0"
+                                     FontSize="13"
+                                     VerticalContentAlignment="Center"
+                                     CaretBrush="{StaticResource TextPrimaryBrush}">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TextBox">
+                                                    <Grid>
+                                                        <TextBlock Text="Search or ask..."
+                                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                                   FontSize="13"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NullOrEmptyToVisibilityConverter}, ConverterParameter=true}"/>
+                                                        <ScrollViewer x:Name="PART_ContentHost"/>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Window Controls -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Button Content="―" Width="36" Height="36" Background="Transparent"
+                                Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" FontSize="16"
+                                Tag="min" Click="WindowControl_Click"/>
+                        <Button Content="☐" Width="36" Height="36" Background="Transparent"
+                                Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" FontSize="14"
+                                Tag="max" Click="WindowControl_Click"/>
+                        <Button Content="✕" Width="36" Height="36" Background="Transparent"
+                                Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" FontSize="16"
+                                Tag="close" Click="WindowControl_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Main Content -->
+            <DockPanel DockPanel.Dock="Top" LastChildFill="True">
+
+                <!-- Left Sidebar -->
+                <Border x:Name="SidebarPanel" DockPanel.Dock="Left" Width="256" Background="{StaticResource SidebarBrush}" CornerRadius="0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <DockPanel x:Name="SidebarContent">
+                        <StackPanel DockPanel.Dock="Top" Margin="12,16,12,0">
+                            <Button Content="+  New Chat" Style="{StaticResource PrimaryButtonStyle}" Foreground="#0A0A0A" HorizontalContentAlignment="Left" Click="NewChatButton_Click" Margin="0,0,0,12"/>
+                            <TextBlock Text="Recent Chats" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel DockPanel.Dock="Bottom" Margin="12">
+                            <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,12"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock x:Name="ProfileNameText" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <Button Content="⚙️" Style="{StaticResource IconButtonStyle}" Width="32" Height="32" Margin="6,0,0,0" Click="OpenSettingsButton_Click" ToolTip="Settings"/>
+                            </StackPanel>
+                            <TextBlock x:Name="SidebarStatusText" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" Text="Chats and memories" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Border Background="{StaticResource PanelBrush}" CornerRadius="10" Padding="8,4" Margin="0,0,6,0"><TextBlock x:Name="SidebarModeText" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Text="Auto"/></Border>
+                                <Border Background="{StaticResource PanelBrush}" CornerRadius="10" Padding="8,4"><TextBlock x:Name="SidebarModelText" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Text="Local" TextTrimming="CharacterEllipsis" MaxWidth="72"/></Border>
+                            </StackPanel>
+                            <Button Content="📚 Memory" Style="{StaticResource SecondaryButtonStyle}" HorizontalContentAlignment="Left" Click="OpenMemoryButton_Click" ToolTip="View saved memories"/>
+                        </StackPanel>
+                        <!-- Chats List -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12,12">
+                            <ItemsControl x:Name="RecentChatsList" ItemsSource="{Binding RecentChats}"
+                                          ItemTemplate="{StaticResource RecentChatTemplate}"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- Chat Area -->
+                <Border DockPanel.Dock="Top" Background="{StaticResource AppBackgroundBrush}" CornerRadius="0" Margin="0">
+                    <DockPanel LastChildFill="True">
+
+                        <!-- Chat Header -->
+                        <Border DockPanel.Dock="Top" Background="Transparent" Height="80" Margin="24,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ChatTitleText"
+                                               Text="Welcome to FROX"
+                                               FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock x:Name="ChatSubtitleText"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,12,0"
+                                            VerticalAlignment="Center">
+                                    <Button Content="📎" Width="28" Height="28" Background="Transparent"
+                                            Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" FontSize="14"
+                                            Margin="0,0,4,0"
+                                            Click="Attachment_Click"/>
+                                    <Button Content="⋮" Width="28" Height="28" Background="Transparent"
+                                            Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" FontSize="14" Click="DeleteCurrentChat_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Messages -->
+                        <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto"
+                                      CanContentScroll="True" Margin="24,8" x:Name="MessagesScroll">
+                            <StackPanel>
+                                <Border x:Name="EmptyStatePanel" Visibility="Collapsed" Padding="24">
+                                    <TextBlock Text="Start a conversation with FROX" Foreground="{StaticResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center"/>
+                                </Border>
+                                <ItemsControl ItemsSource="{Binding Messages}"
+                                              ItemTemplate="{StaticResource MessageBubbleTemplate}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Input Composer -->
+                        <Border x:Name="ComposerHost" DockPanel.Dock="Bottom" Background="{StaticResource AppBackgroundBrush}"
+                                Margin="24,0,24,20" Padding="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Text Input -->
+                                <TextBox x:Name="MessageInput"
+                                         Background="{StaticResource BackgroundTertiaryBrush}" Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" FontSize="14"
+                                         Padding="16,12" Margin="0,0,8,0"
+                                         VerticalContentAlignment="Center"
+                                         KeyDown="MessageInput_KeyDown"
+                                         GotKeyboardFocus="MessageInput_GotKeyboardFocus"
+                                         LostKeyboardFocus="MessageInput_LostKeyboardFocus">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="TextBox">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                                CornerRadius="9">
+                                                            <Grid Margin="{TemplateBinding Padding}">
+                                                                <TextBlock Text="Message FROX…"
+                                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                                           FontSize="14"
+                                                                           VerticalAlignment="Center"
+                                                                           Visibility="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NullOrEmptyToVisibilityConverter}, ConverterParameter=true}"/>
+                                                                <ScrollViewer x:Name="PART_ContentHost"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+
+                                <!-- Attachment menu keeps file context separate from skills. -->
+                                <Button x:Name="AttachmentMenuButton" Grid.Column="1" Content="+" Width="36" Height="36"
+                                        Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                        BorderThickness="0" FontSize="16"
+                                        Margin="0,0,4,0"
+                                        Click="AttachmentMenu_Click">
+                                    <Button.ContextMenu>
+                                        <ContextMenu x:Name="AttachmentMenu" Placement="Top" StaysOpen="False">
+                                            <MenuItem Header="📎 Add Files" Click="AttachFiles_Click"/>
+                                            <MenuItem Header="⚡ Skill" Click="SkillMenu_Click"/>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+
+                                <!-- Send Button -->
+                                <Button Grid.Column="2" Content="Send" Width="80" Height="44"
+                                        Background="{StaticResource AccentPrimaryBrush}" Foreground="#0A0A0A"
+                                        BorderThickness="0" FontSize="14" FontWeight="Medium"
+                                        Margin="0,0,4,0"
+                                        Click="SendMessage_Click"/>
+
+                                <!-- Mic Button (Quick Record) -->
+                                <Button Grid.Column="3" Content="🎤" Width="36" Height="36"
+                                        Background="{StaticResource BackgroundTertiaryBrush}" Foreground="{StaticResource TextPrimaryBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                        FontSize="16"
+                                        Margin="0,0,0,0"
+                                        x:Name="MicBarButton"
+                                        Click="MicButton_Click"/>
+                            </Grid>
+                        </Border>
+                    </DockPanel>
+                </Border>
+
+                <!-- Bottom Bar - Quick Actions -->
+                <Border DockPanel.Dock="Bottom" Background="{StaticResource SidebarBrush}" Height="56" CornerRadius="0,0,12,12" Margin="12,0,12,12" Visibility="Collapsed">
+                    <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource AccentBrush}">
-                                <TextBlock Text="🐼" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="FROX" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"
-                                       Margin="10,0,0,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Companion" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="6,2,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <!-- Workspace Button -->
+                        <Button Grid.Column="0" Content="📁" Width="40" Height="36"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" FontSize="16"
+                                Margin="12,0,0,0"
+                                Click="WorkspaceButton_Click"/>
 
-                        <Border Grid.Column="1" Background="{StaticResource CardBrush}" Height="34" CornerRadius="17"
-                                Margin="26,0" VerticalAlignment="Center" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="🔍" FontSize="12" Margin="12,0,8,0" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="SearchBox" Background="Transparent"
-                                         BorderThickness="0" FontSize="12.5" VerticalContentAlignment="Center"
-                                         TextChanged="SearchBox_TextChanged" CaretBrush="{StaticResource TextPrimaryBrush}"/>
-                            </Grid>
-                        </Border>
+                        <!-- Settings Button -->
+                        <Button Grid.Column="1" Content="⚙️" Width="40" Height="36"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" FontSize="16"
+                                Margin="4,0,0,0"
+                                Click="OpenSettingsButton_Click"/>
 
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="—" Style="{StaticResource WindowControlButtonStyle}" Tag="min" Click="WindowControl_Click"/>
-                            <Button Content="▢" Style="{StaticResource WindowControlButtonStyle}" Tag="max" Click="WindowControl_Click"/>
-                            <Button Content="✕" Style="{StaticResource WindowControlButtonStyle}" Tag="close" Click="WindowControl_Click"/>
+                        <!-- Media Attachment Button (duplicate? we already have in composer) -->
+                        <!-- We'll keep it here as per prompt, but we can also have it in composer -->
+                        <Button Grid.Column="2" Content="📎" Width="40" Height="36"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" FontSize="16"
+                                Margin="4,0,0,0"
+                                Click="Attachment_Click"/>
+
+                        <!-- Voice Icon -->
+                        <Button Grid.Column="3" Content="🎤" Width="40" Height="36"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" FontSize="16"
+                                Margin="4,0,0,0"
+                                Click="VoiceNote_Click"/>
+
+                        <!-- Spacer -->
+                        <Grid Grid.Column="4"/>
+
+                        <!-- Status Indicator -->
+                        <StackPanel Grid.Column="5" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <TextBlock x:Name="StatusText" Text="Offline mode · 0 messages"
+                                       Foreground="{StaticResource AccentPrimaryBrush}" FontSize="10"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="StatusModeText" Foreground="{StaticResource TextSecondaryBrush}" FontSize="9"/>
+                                <TextBlock Text=" · " Foreground="{StaticResource TextTertiaryBrush}" FontSize="9"/>
+                                <TextBlock x:Name="StatusModelText" Foreground="{StaticResource TextSecondaryBrush}" FontSize="9"/>
+                            </StackPanel>
                         </StackPanel>
+                        <TextBlock x:Name="ProfileInitial" Visibility="Collapsed"/>
+                        <TextBlock x:Name="ProfileModeText" Visibility="Collapsed"/>
                     </Grid>
                 </Border>
-                <Grid Grid.Row="1">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="270"/>
-                        <ColumnDefinition Width="1"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+            </DockPanel>
+        </DockPanel>
+    </Border>
 
-                    <!-- ==== Sidebar : new chat + recent chats + profile ==== -->
-                    <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+    <!-- Bot Character (Floating) -->
+    <Border x:Name="BotCharacterContainer"
+            Background="Transparent"
+            Width="60" Height="60"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="0,0,24,80"
+            Visibility="Visible"
+            Panel.ZIndex="10">
+        <Grid>
+            <!-- Notification Bubble (above bot) -->
+            <Border x:Name="BotNotificationBubble"
+                    Background="#CC141414" CornerRadius="12" Padding="12,8"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,-50,0,0">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="2" Opacity="0.5"/>
+                </Border.Effect>
+                <TextBlock x:Name="NotificationText"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           MaxWidth="120"
+                           TextAlignment="Center"/>
+            </Border>
 
-                            <Button Grid.Row="0" Content="＋  New Chat" Style="{StaticResource PrimaryButtonStyle}"
-                                    Height="38" Margin="12,12,12,8" Click="NewChatButton_Click"/>
+            <Canvas Width="60" Height="60" RenderTransformOrigin="0.5,0.5">
+                <!-- We'll apply a TranslateTransform for floating -->
+                <Canvas.RenderTransform>
+                    <TranslateTransform x:Name="BotFloatTransform"/>
+                </Canvas.RenderTransform>
 
-                            <ScrollViewer Grid.Row="1" Margin="6,0,6,4"
-                                          VerticalScrollBarVisibility="Auto">
-                                <ItemsControl x:Name="RecentChatsList" ItemsSource="{Binding RecentChats}"
-                                              ItemTemplate="{StaticResource RecentChatTemplate}"/>
-                            </ScrollViewer>
+            <!-- Fixed helmet housing: expressions only affect the screen features. -->
+            <Rectangle Width="48" Height="48" Canvas.Left="6" Canvas.Top="6"
+                       Fill="#F2F2F2" RadiusX="14" RadiusY="14">
+                <Rectangle.Effect><DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="4" Opacity="0.45"/></Rectangle.Effect>
+            </Rectangle>
+            <Rectangle Width="38" Height="28" Canvas.Left="11" Canvas.Top="15"
+                       Fill="#050505" RadiusX="9" RadiusY="9"/>
 
-                            <Border Grid.Row="2" Background="{StaticResource CardBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
-                                    Padding="12,10" CornerRadius="0,0,0,12">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Width="34" Height="34" CornerRadius="17" Background="#FFE9D9B8">
-                                        <TextBlock x:Name="ProfileInitial" FontSize="15" FontWeight="Bold"
-                                                   Foreground="#FF4A3A22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock x:Name="ProfileNameText" FontSize="12.5" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
-                                        <TextBlock x:Name="ProfileModeText" FontSize="10" Foreground="{StaticResource AccentBrush}"/>
-                                    </StackPanel>
-                                    <Button Grid.Column="2" Content="⚙" Style="{StaticResource IconButtonStyle}"
-                                            Click="OpenSettingsButton_Click"/>
-                                </Grid>
-                            </Border>
-                        </Grid>
-</Border>
-                    <Border Grid.Column="1" Background="{StaticResource BorderBrush}"/>
+            <!-- Eyes -->
+            <Ellipse x:Name="LeftEye" Width="8" Height="8" Canvas.Left="18" Canvas.Top="22"
+                     Fill="{StaticResource BotGlowBrush}">
+                <Ellipse.RenderTransform>
+                    <ScaleTransform x:Name="LeftEyeScale" ScaleX="1" ScaleY="1"/>
+                </Ellipse.RenderTransform>
+            </Ellipse>
+            <Ellipse x:Name="RightEye" Width="8" Height="8" Canvas.Left="34" Canvas.Top="22"
+                     Fill="{StaticResource BotGlowBrush}">
+                <Ellipse.RenderTransform>
+                    <ScaleTransform x:Name="RightEyeScale" ScaleX="1" ScaleY="1"/>
+                </Ellipse.RenderTransform>
+            </Ellipse>
 
-                    <!-- ==== Chat area : header + messages + composer ==== -->
-                    <Grid Grid.Column="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+            <!-- Mouth -->
+            <Path x:Name="BotMouth"
+                  Data="M 18,32 Q 24,32 30,32"
+                  Stroke="{StaticResource BotGlowBrush}" StrokeThickness="2"
+                  Canvas.Left="0" Canvas.Top="0"/>
+        </Canvas>
+        </Grid>
+    </Border>
 
-                        <Border Grid.Row="0" Background="{StaticResource PanelBrush}"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock x:Name="ChatTitleText" Text="New Chat" FontSize="15" FontWeight="Bold"
-                                               Foreground="{StaticResource TextPrimaryBrush}"/>
-                                    <TextBlock x:Name="ChatSubtitleText" FontSize="10.5"
-                                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <Button Content="🧠" Style="{StaticResource IconButtonStyle}" ToolTip="Memory"
-                                            Click="OpenMemoryButton_Click"/>
-                                    <Button Content="🗑" Style="{StaticResource IconButtonStyle}" ToolTip="Delete this chat"
-                                            Click="DeleteCurrentChat_Click"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <ScrollViewer x:Name="MessagesScroll" Grid.Row="1"
-                                      VerticalScrollBarVisibility="Auto" Padding="18,16,18,4">
-                            <Grid>
-                                <ItemsControl x:Name="MessagesList" ItemsSource="{Binding Messages}"
-                                              ItemTemplate="{StaticResource MessageBubbleTemplate}"/>
-                                <StackPanel x:Name="EmptyStatePanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,0">
-                                    <TextBlock Text="🐼" FontSize="46" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Say hi to your panda companion" FontSize="16" FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" Margin="0,12,0,0"/>
-                                    <TextBlock Text="Ask anything, attach files, or leave a voice note."
-                                               FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </Grid>
-</ScrollViewer>
-                        <Border Grid.Row="2" Background="{StaticResource SidebarBrush}"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="14,12">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <ItemsControl x:Name="PendingAttachmentsPanel" Grid.Row="0"
-                                              ItemsSource="{Binding PendingAttachments}"
-                                              ItemTemplate="{StaticResource AttachmentChipTemplate}" Margin="0,0,0,8"/>
-                                <Grid Grid.Row="1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="MessageInput" Style="{StaticResource AppTextBoxStyle}"
-                                             FontSize="13" Padding="10,8" VerticalContentAlignment="Center"
-                                             KeyDown="MessageInput_KeyDown"
-                                             GotKeyboardFocus="MessageInput_GotKeyboardFocus"
-                                             LostKeyboardFocus="MessageInput_LostKeyboardFocus"/>
-                                    <Button Grid.Column="1" Content="📎" Style="{StaticResource IconButtonStyle}"
-                                            ToolTip="Attach media" Click="AttachFiles_Click"/>
-                                    <Button Grid.Column="2" Content="🎤" Style="{StaticResource IconButtonStyle}"
-                                            ToolTip="Voice note (record)" Click="VoiceNote_Click"/>
-                                    <Button Grid.Column="3" Content="Send" Style="{StaticResource PrimaryButtonStyle}"
-                                            MinWidth="86" Margin="6,0,0,0" Click="SendMessage_Click"/>
-                                </Grid>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                <Border Grid.Row="2" Background="{StaticResource SidebarBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
-                        CornerRadius="0,0,12,12" Padding="14,6">
+    <!-- Settings Panel (Overlay) -->
+    <Border x:Name="SettingsOverlay"
+            Background="{StaticResource ScrimBrush}"
+            CornerRadius="0"
+            Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+            Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Window}}"
+            Visibility="Collapsed">
+        <Border Width="560" Background="{StaticResource SidebarBrush}" CornerRadius="16"
+                Margin="0"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <DockPanel LastChildFill="True">
+                <!-- Settings Header -->
+                <Border DockPanel.Dock="Top" Background="{StaticResource PanelBrush}" Height="56" CornerRadius="16,16,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="🗂" Style="{StaticResource IconButtonStyle}" ToolTip="Open workspace folder"
-                                    Click="WorkspaceButton_Click"/>
-                            <Button Content="⚙" Style="{StaticResource IconButtonStyle}" ToolTip="Settings"
-                                    Click="OpenSettingsButton_Click"/>
-                            <Button Content="🧠" Style="{StaticResource IconButtonStyle}" ToolTip="Memory"
-                                    Click="OpenMemoryButton_Click"/>
-                            <Button Content="📎" Style="{StaticResource IconButtonStyle}" ToolTip="Attach media"
-                                    Click="AttachFiles_Click"/>
-                            <Button x:Name="VoiceBarButton" Content="🎤" Style="{StaticResource IconButtonStyle}"
-                                    ToolTip="Voice note (record)" Click="VoiceNote_Click"/>
-                            <Button x:Name="MicBarButton" Content="🎙" Style="{StaticResource IconButtonStyle}"
-                                    ToolTip="Microphone (push to talk)" Click="MicButton_Click"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="StatusText" FontSize="10.5" Foreground="{StaticResource TextSecondaryBrush}"
-                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <Border Background="{StaticResource CardBrush}" CornerRadius="12" Padding="10,4"
-                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock x:Name="StatusModeText" Text="Auto" FontSize="10.5"
-                                               Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock Text="·" FontSize="10" Foreground="{StaticResource TextFaintBrush}" Margin="6,0"/>
-                                    <TextBlock x:Name="StatusModelText" Text="Local panda" FontSize="10.5"
-                                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                        <TextBlock Text="Settings"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" Margin="24,0,0,0"/>
+                        <Button Content="✕" Width="32" Height="32"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" FontSize="16"
+                                VerticalAlignment="Center" Margin="0,0,24,0"
+                                Click="CloseSettingsOverlay_Click"/>
                     </Grid>
                 </Border>
-            </Grid>
-</Grid>
-        </Border>
 
-        <!-- ==== SCREEN 2 : SETTINGS OVERLAY ==== -->
-        <Border x:Name="SettingsOverlay" Grid.ZIndex="30" Background="{StaticResource ScrimBrush}" Visibility="Collapsed">
-            <Border Width="620" MaxHeight="720" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Background="{StaticResource PanelBrush}" CornerRadius="14"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <!-- Settings Content -->
+                <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto" Margin="24">
+                    <StackPanel>
+                        <!-- Profile Settings -->
+                        <TextBlock Text="Profile"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="Username"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,8,0,4"/>
+                        <TextBox x:Name="UsernameBox"
+                                 Text="Tanmoy"
+                                 Background="{StaticResource BackgroundTertiaryBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"
+                                 Padding="10,8"/>
+                        <TextBlock Text="Display Name"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <TextBox x:Name="DisplayNameBox"
+                                 Background="{StaticResource BackgroundTertiaryBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"
+                                 Padding="10,8"/>
 
-                    <Grid Grid.Row="0" Margin="24,18,18,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="⚙  Settings" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <TextBlock Text="Profile, mode and AI provider" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0"/>
+                        <!-- Bot Character Settings -->
+                        <TextBlock Text="Bot Character"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,8"/>
+                        <TextBlock Text="Show Character"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,8,0,4"/>
+                        <ToggleButton x:Name="ShowCharacterToggle"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      IsChecked="True"/>
+                        <TextBlock Text="Position"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="BotBottomRight" GroupName="BotPosition" Content="Bottom Right" IsChecked="True"/>
+                            <RadioButton x:Name="BotBottomLeft" GroupName="BotPosition" Content="Bottom Left"/>
+                            <RadioButton x:Name="BotTopRight" GroupName="BotPosition" Content="Top Right"/>
+                            <RadioButton x:Name="BotTopLeft" GroupName="BotPosition" Content="Top Left"/>
                         </StackPanel>
-                        <Button Grid.Column="1" x:Name="CloseSettingsButton" Content="✕" Style="{StaticResource IconButtonStyle}"
-                                Click="CloseSettingsOverlay_Click"/>
-                    </Grid>
+                        <TextBlock Text="Size"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <Slider x:Name="BotSizeSlider" Minimum="40" Maximum="80" Value="60" Width="200"/>
+                        <TextBlock Text="Opacity"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <Slider x:Name="BotOpacitySlider" Minimum="60" Maximum="100" Value="80" Width="200"/>
 
-                    <Border Grid.Row="1" Background="{StaticResource BorderBrush}" Height="1" Margin="20,0"/>
+                        <!-- Mode Selection -->
+                        <TextBlock Text="Mode"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,8"/>
+                        <ComboBox x:Name="ModeCombo"
+                                  SelectedValuePath="Content"
+                                  Background="{StaticResource BackgroundTertiaryBrush}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  BorderBrush="{StaticResource BorderBrush}"
+                                  BorderThickness="1"
+                                  Padding="10,8">
+                            <ComboBoxItem Content="Auto"/>
+                            <ComboBoxItem Content="Offline"/>
+                            <ComboBoxItem Content="Online"/>
+                        </ComboBox>
+                        <TextBlock Text="Offline Mode"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,8,0,4"/>
+                        <ToggleButton x:Name="OfflineToggle"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      IsChecked="True"/>
+                        <TextBlock Text="Online Mode"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <ToggleButton x:Name="OnlineToggle"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      IsChecked="False"/>
 
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="24,8">
-                        <StackPanel>
-
-                            <TextBlock Text="Profile" Style="{StaticResource SectionTitleStyle}"/>
-                            <TextBlock Text="Your handle and display name shown on the sidebar." FontSize="10.5"
-                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,10"/>
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Width="230" Margin="0,0,16,0">
-                                    <TextBlock Text="Username" Style="{StaticResource CaptionTextStyle}"/>
-                                    <TextBox x:Name="UsernameBox" Style="{StaticResource AppTextBoxStyle}"/>
-                                </StackPanel>
-                                <StackPanel Width="230">
-                                    <TextBlock Text="Display name" Style="{StaticResource CaptionTextStyle}"/>
-                                    <TextBox x:Name="DisplayNameBox" Style="{StaticResource AppTextBoxStyle}"/>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <TextBlock Text="Mode" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0"/>
-                            <TextBlock Text="Auto picks the cloud provider when a key is saved, otherwise runs fully offline." FontSize="10.5"
-                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,10"/>
-                            <ComboBox x:Name="ModeCombo" Style="{StaticResource AppComboBoxStyle}" Width="240" HorizontalAlignment="Left">
-                                <ComboBoxItem Content="Auto"/>
-                                <ComboBoxItem Content="Offline"/>
-                                <ComboBoxItem Content="Online"/>
-                            </ComboBox>
-                            <TextBlock Text="AI Provider" Style="{StaticResource SectionTitleStyle}" Margin="0,18,0,0"/>
-                            <TextBlock Text="Choose the local panda or a cloud model via OpenRouter. The API key is encrypted at rest." FontSize="10.5"
-                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,10"/>
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Margin="0,0,16,0">
-                                    <TextBlock Text="Provider" Style="{StaticResource CaptionTextStyle}"/>
-                                    <ComboBox x:Name="ProviderCombo" Style="{StaticResource AppComboBoxStyle}" Width="180">
-                                        <ComboBoxItem Content="Offline"/>
-                                        <ComboBoxItem Content="OpenRouter"/>
-                                    </ComboBox>
-                                </StackPanel>
-                                <StackPanel Width="270">
-                                    <TextBlock Text="Model" Style="{StaticResource CaptionTextStyle}"/>
-                                    <TextBox x:Name="ModelBox" Style="{StaticResource AppTextBoxStyle}"/>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <TextBlock Text="API key" Style="{StaticResource CaptionTextStyle}" Margin="0,14,0,0"/>
-                            <PasswordBox x:Name="ApiKeyBox" MaxWidth="460" HorizontalAlignment="Left" Width="460"/>
-                            <TextBlock Text="Stored encrypted with Windows DPAPI in %LocalAppData%\FROX\settings.json." FontSize="9.5"
-                                       Foreground="{StaticResource TextFaintBrush}" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,12,20,18">
-                        <Button Content="Cancel" Style="{StaticResource SecondaryButtonStyle}" MinWidth="90" Margin="0,0,10,0"
-                                Click="CloseSettingsOverlay_Click"/>
-                        <Button Content="Save Settings" Style="{StaticResource PrimaryButtonStyle}" MinWidth="130"
+                        <!-- API Configuration -->
+                        <TextBlock Text="API Configuration"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,8"/>
+                        <TextBlock Text="API Provider"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,8,0,4"/>
+                        <ComboBox x:Name="ProviderCombo"
+                                  SelectedValuePath="Content"
+                                  SelectedValue="Offline"
+                                  Background="{StaticResource BackgroundTertiaryBrush}"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  BorderBrush="{StaticResource BorderBrush}"
+                                  BorderThickness="1"
+                                  Padding="10,8">
+                            <ComboBoxItem Content="Offline"/>
+                            <ComboBoxItem Content="OpenRouter"/>
+                        </ComboBox>
+                        <TextBlock Text="OpenRouter API key (kept in memory for this session)"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <PasswordBox x:Name="ApiKeyBox"
+                                     Background="{StaticResource BackgroundTertiaryBrush}"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}"
+                                     BorderThickness="1"
+                                     Padding="10,8"/>
+                        <TextBlock Text="Model"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,14,0,4"/>
+                        <TextBox x:Name="ModelBox"
+                                 Text="openai/gpt-4o-mini"
+                                 Background="{StaticResource BackgroundTertiaryBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"
+                                 Padding="10,8"/>
+                        <Button Content="Save connection settings"
+                                Width="200"
+                                Margin="0,18,0,0"
+                                HorizontalAlignment="Left"
+                                Background="{StaticResource AccentPrimaryBrush}"
+                                Foreground="{StaticResource TextPrimaryBrush}"
+                                BorderThickness="0"
+                                FontSize="12"
                                 Click="SaveSettings_Click"/>
+                        <TextBlock x:Name="SettingsStatus"
+                                   Foreground="{StaticResource AccentPrimaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,12,0,0"/>
+                        <TextBlock Text="For safety, FROX never writes your API key to Git, source files, or the settings file. Rotate any key shared in chat."
+                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,24,0,0"/>
                     </StackPanel>
-                </Grid>
-            </Border>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
-<!-- ==== SCREEN 3 : MEMORY OVERLAY ==== -->
-        <Border x:Name="MemoryOverlay" Grid.ZIndex="40" Background="{StaticResource ScrimBrush}" Visibility="Collapsed">
-            <Border Width="760" MaxHeight="700" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Background="{StaticResource PanelBrush}" CornerRadius="14"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+    </Border>
 
-                    <Grid Grid.Row="0" Margin="24,18,18,10">
+    <!-- Memory Overlay -->
+    <Border x:Name="MemoryOverlay"
+            Background="{StaticResource ScrimBrush}"
+            CornerRadius="0"
+            Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+            Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Window}}"
+            Visibility="Collapsed"
+            Panel.ZIndex="20">
+        <Border Width="500" Height="400" Background="{StaticResource SidebarBrush}" CornerRadius="12"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <DockPanel LastChildFill="True">
+                <!-- Memory Overlay Header -->
+                <Border DockPanel.Dock="Top" Background="{StaticResource PanelBrush}" Height="56" CornerRadius="12,12,0,0">
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="🧠  Memory" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <TextBlock x:Name="MemorySubtitleText" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0"/>
-                        </StackPanel>
-                        <Button Grid.Column="1" Content="✕" Style="{StaticResource IconButtonStyle}" Click="CloseMemoryOverlay_Click"/>
+                        <TextBlock Text="Memory"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" Margin="16,0,0,0"/>
+                        <Button Grid.Column="1" Content="+ Add Memory"
+                                Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                BorderThickness="0" FontSize="12"
+                                VerticalAlignment="Center" Margin="0,0,12,0"
+                                Click="NewMemory_Click"/>
+                        <Button Grid.Column="2" Content="✕" Width="32" Height="32"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" FontSize="16"
+                                VerticalAlignment="Center" Margin="0,0,16,0"
+                                Click="CloseMemoryOverlay_Click"/>
                     </Grid>
+                </Border>
 
-                    <Border Grid.Row="1" Background="{StaticResource BorderBrush}" Height="1" Margin="20,0"/>
-
-                    <Grid Grid.Row="2" Margin="20,14,20,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Inline memory editor (hidden until New/Edit). -->
-                        <Border x:Name="MemoryEditorPanel" Grid.Row="0" Background="{StaticResource CardBrush}"
-                                CornerRadius="10" Padding="14,12" Margin="0,0,0,12" BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="1" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock Text="Title" Style="{StaticResource CaptionTextStyle}"/>
-                                <TextBox x:Name="MemoryTitleBox" Style="{StaticResource AppTextBoxStyle}" Margin="0,0,0,8"/>
-                                <TextBlock Text="What should FROX remember?" Style="{StaticResource CaptionTextStyle}"/>
-                                <TextBox x:Name="MemoryContentBox" Style="{StaticResource AppTextBoxStyle}" Height="74"
-                                         TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10"/>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="Cancel" Style="{StaticResource SecondaryButtonStyle}" MinWidth="80"
-                                            Margin="0,0,8,0" Click="CancelMemoryEdit_Click"/>
-                                    <Button Content="Save Memory" Style="{StaticResource PrimaryButtonStyle}"
-                                            MinWidth="110" Click="SaveMemory_Click"/>
-                                </StackPanel>
+                <!-- Memory Cards -->
+                <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto" Margin="16">
+                    <StackPanel>
+                        <TextBlock x:Name="MemorySubtitleText" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,12"/>
+                        <StackPanel x:Name="MemoryEditorPanel" Visibility="Collapsed" Margin="0,0,0,12">
+                            <TextBox x:Name="MemoryTitleBox" Margin="0,0,0,8" Padding="8"/>
+                            <TextBox x:Name="MemoryContentBox" Height="70" TextWrapping="Wrap" AcceptsReturn="True" Padding="8"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                                <Button Content="Cancel" Click="CancelMemoryEdit_Click" Margin="0,0,8,0"/>
+                                <Button Content="Save" Click="SaveMemory_Click"/>
                             </StackPanel>
-                        </Border>
-<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl x:Name="MemoriesList" ItemsSource="{Binding Memories}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="14,11"
-                                                Margin="0,0,0,10" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource TextPrimaryBrush}"/>
-                                                    <TextBlock Text="{Binding Content}" FontSize="11.5"
-                                                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0"
-                                                               TextWrapping="Wrap" MaxHeight="64"/>
-                                                    <TextBlock Text="{Binding TimeLabel}" FontSize="9.5"
-                                                               Foreground="{StaticResource TextFaintBrush}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                                    <Button Content="✏" Style="{StaticResource IconButtonStyle}" Click="EditMemory_Click"/>
-                                                    <Button Content="🗑" Style="{StaticResource IconButtonStyle}" Click="DeleteMemory_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </Grid>
-
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,14,20,20">
-                        <Button Content="＋  New Memory" Style="{StaticResource SecondaryButtonStyle}" MinWidth="120"
-                                Margin="0,0,10,0" Click="NewMemory_Click"/>
-                        <Button Content="Close" Style="{StaticResource PrimaryButtonStyle}" MinWidth="100" Click="CloseMemoryOverlay_Click"/>
+                        </StackPanel>
+                        <ItemsControl x:Name="MemoriesList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,12" Padding="16">
+                                    <DockPanel LastChildFill="True">
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontSize="14" FontWeight="Medium"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   DockPanel.Dock="Top"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Content}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   DockPanel.Dock="Top"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,8,0,0"/>
+                                        <TextBlock Text="{Binding Timestamp}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                                   DockPanel.Dock="Bottom"
+                                                   HorizontalAlignment="Right"/>
+                                        <Button DockPanel.Dock="Right"
+                                                Width="24" Height="24"
+                                                Background="Transparent"
+                                                Foreground="{StaticResource TextSecondaryBrush}"
+                                                BorderThickness="0"
+                                                FontSize="12"
+                                                Margin="8,0,0,0"
+                                                Content="⋮"
+                                                Click="MemoryMenu_Click">
+                                            <Button.ContextMenu>
+                                                <ContextMenu Placement="Bottom" StaysOpen="False">
+                                                    <MenuItem Header="Edit" Click="EditMemory_Click"/>
+                                                    <MenuItem Header="Delete / Forget" Click="DeleteMemory_Click"/>
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                        </Button>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
-                </Grid>
-            </Border>
+
+                </ScrollViewer>
+            </DockPanel>
         </Border>
+    </Border>
     </Grid>
 </Window>

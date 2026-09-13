@@ -1,17 +1,17 @@
-using System.Drawing;
+using System;
+using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using FROX.Config;
-using FROX.Core;
-using WinForms = System.Windows.Forms;
 
 namespace FROX.App;
 
+/// <summary>
+/// Interaction logic for App.xaml
+/// </summary>
 public partial class App : System.Windows.Application
 {
     private NotifyIcon? _trayIcon;
-    private OverlayWindow? _overlayWindow;
-    private readonly IdleWatcher _idleWatcher = new();
 
     public static AppSettings Settings { get; } = new();
 
@@ -20,6 +20,7 @@ public partial class App : System.Windows.Application
         // Catch unhandled exceptions on the UI thread
         DispatcherUnhandledException += (_, args) =>
         {
+            WriteStartupLog(args.Exception);
             System.Windows.MessageBox.Show(
                 $"Oops! FROX encountered a problem and will close.\n\n{args.Exception.GetType().Name}: {args.Exception.Message}",
                 "FROX",
@@ -30,55 +31,42 @@ public partial class App : System.Windows.Application
             Shutdown();
         };
 
-        MainWindow = new MainWindow();
-        MainWindow.Show();
-
-        _overlayWindow = new OverlayWindow();
-        _overlayWindow.Show();
-
-        _idleWatcher.StateChanged += (_, state) =>
+        try
         {
-            // Dispatch to UI thread since IdleWatcher timer runs on a thread-pool thread
-            Dispatcher.Invoke(() =>
-            {
-                if (_overlayWindow is null)
-                {
-                    return;
-                }
-
-                _overlayWindow.SetMood(state == ActivityState.Idle ? FROX.Characters.CharacterAnimationState.Sleep : FROX.Characters.CharacterAnimationState.Idle);
-            });
-        };
-
-        InitializeTrayIcon();
+            MainWindow = new MainWindow();
+            MainWindow.Show();
+            InitializeTrayIcon();
+        }
+        catch (Exception ex)
+        {
+            WriteStartupLog(ex);
+            System.Windows.MessageBox.Show(
+                $"FROX could not start.\n\n{ex.GetType().Name}: {ex.Message}",
+                "FROX",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(-1);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _trayIcon?.Dispose();
-        _idleWatcher.Dispose();
         base.OnExit(e);
     }
 
     private void InitializeTrayIcon()
     {
-        // Load custom FROX icon from assembly resources for the system tray
         Icon trayIcon;
         try
         {
             var assembly = typeof(App).Assembly;
-            var resourceName = assembly.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("FROX.ico"));
+            var resourceName = assembly.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith("FROX.ico"));
             if (resourceName is not null)
             {
                 using var stream = assembly.GetManifestResourceStream(resourceName);
-                if (stream is not null)
-                {
-                    trayIcon = new Icon(stream);
-                }
-                else
-                {
-                    trayIcon = SystemIcons.Information;
-                }
+                trayIcon = stream is not null ? new Icon(stream) : SystemIcons.Information;
             }
             else
             {
@@ -93,12 +81,13 @@ public partial class App : System.Windows.Application
         _trayIcon = new NotifyIcon
         {
             Visible = true,
-            Text = "FROX — Panda Companion",
+            Text = "FROX Companion",
             Icon = trayIcon
         };
 
         var contextMenu = new ContextMenuStrip();
-        var showHideItem = new ToolStripMenuItem("Show / Hide overlay");
+
+        var showHideItem = new ToolStripMenuItem("Show / Hide bot");
         showHideItem.Click += (_, _) => ToggleOverlay();
 
         var openChatItem = new ToolStripMenuItem("Open chat window");
@@ -118,40 +107,45 @@ public partial class App : System.Windows.Application
         _trayIcon.ContextMenuStrip = contextMenu;
         _trayIcon.MouseClick += (_, args) =>
         {
-            if (args.Button == MouseButtons.Left)
-            {
-                ToggleOverlay();
-            }
+            if (args.Button == MouseButtons.Left) ToggleOverlay();
         };
     }
 
-    /// <summary>Shows the panda's "thinking/chatting" animation while a reply is being generated.</summary>
-    public static void SetOverlayThinking(bool thinking)
+    /// <summary>
+    /// Toggles the visibility of the bot character in the main window.
+    /// </summary>
+    public void ToggleOverlay()
     {
-        if (Current is not App app)
+        if (Current is App app && app.MainWindow is not null)
         {
-            return;
-        }
+            // Toggle the bot character visibility in the main window
+            app.MainWindow.Dispatcher.Invoke(() =>
+            {
+                if (app.MainWindow is not MainWindow mainWindow)
+                    return;
 
-        app._overlayWindow?.SetMood(thinking
-            ? FROX.Characters.CharacterAnimationState.Thinking
-            : FROX.Characters.CharacterAnimationState.Idle);
+                var currentVisibility = mainWindow.BotCharacterContainer.Visibility;
+                mainWindow.BotCharacterContainer.Visibility =
+                    currentVisibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+            });
+        }
     }
 
-    private void ToggleOverlay()
+    private static void WriteStartupLog(Exception exception)
     {
-        if (_overlayWindow is null)
+        try
         {
-            return;
+            var folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "FROX");
+            Directory.CreateDirectory(folder);
+            File.AppendAllText(
+                Path.Combine(folder, "startup.log"),
+                $"{DateTime.Now:O} {exception}\n\n");
         }
-
-        if (_overlayWindow.IsVisible)
+        catch
         {
-            _overlayWindow.Hide();
-        }
-        else
-        {
-            _overlayWindow.Show();
+            // Logging must never prevent the application from reporting its error.
         }
     }
 }

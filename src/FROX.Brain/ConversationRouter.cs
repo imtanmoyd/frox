@@ -98,7 +98,7 @@ public sealed class ConversationRouter
         lower is "bye" or "goodbye" or "see you" or "later" or "cya" or "talk later" or "take care";
 
     private static bool IsFeelingQuery(string lower) =>
-        lower.Contains("how are you") || lower.Contains("how's it going") || lower.Contains("how's panda") || lower.Contains("you okay");
+        lower.Contains("how are you") || lower.Contains("how's it going") || lower.Contains("how's frox") || lower.Contains("you okay");
 
     private static string GenerateReflection(string message)
     {
