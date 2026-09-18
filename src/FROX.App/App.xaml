@@ -27,8 +27,10 @@
         <SolidColorBrush x:Key="WarningBrush" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="ScrimBrush" Color="#B3000000"/>
 
-        <SolidColorBrush x:Key="AccentBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="AccentBrushMuted" Color="#2A2A2A"/>
+        <!-- Main accent - pure white for buttons, subtle gray for hover -->
+        <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="AccentActiveBrush" Color="#CCCCCC"/>
 
         <!-- ===== Base text ===== -->
         <Style TargetType="TextBlock">
@@ -178,7 +180,7 @@
         <Style x:Key="ToggleSwitchStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="46"/>
             <Setter Property="Height" Value="24"/>
-            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="Background" Value="{StaticResource BackgroundTertiaryBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -195,17 +197,17 @@
                                      Height="18"
                                      HorizontalAlignment="Left"
                                      Margin="2"
-                                     Fill="{StaticResource TextSecondaryBrush}"/>
+                                     Fill="#888888"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Track" Property="Background" Value="{StaticResource AccentBrush}"/>
-                                <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Track" Property="Background" Value="White"/>
+                                <Setter TargetName="Track" Property="BorderBrush" Value="White"/>
                                 <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
                                 <Setter TargetName="Thumb" Property="Fill" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Track" Property="Opacity" Value="0.88"/>
+                                <Setter TargetName="Track" Property="Opacity" Value="0.9"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

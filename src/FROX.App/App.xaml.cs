@@ -17,6 +17,23 @@ public partial class App : System.Windows.Application
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        // Single-instance enforcement with named mutex
+        var mutex = new System.Threading.Mutex(true, "FROX-Desktop-App", out bool createdNew);
+        if (!createdNew)
+        {
+            // Another instance is already running
+            System.Windows.MessageBox.Show(
+                "FROX is already running. Check your system tray for the existing instance.",
+                "FROX",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Current.Shutdown();
+            return;
+        }
+
+        // Keep mutex alive for the lifetime of the application
+        AppDomain.CurrentDomain.ProcessExit += (s, args) => mutex?.Close();
+
         // Catch unhandled exceptions on the UI thread
         DispatcherUnhandledException += (_, args) =>
         {
@@ -137,11 +154,54 @@ public partial class App : System.Windows.Application
         {
             var folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FROX");
+                "FROX", "logs");
             Directory.CreateDirectory(folder);
-            File.AppendAllText(
-                Path.Combine(folder, "startup.log"),
-                $"{DateTime.Now:O} {exception}\n\n");
+
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
+            var logFile = Path.Combine(folder, $"crash-{timestamp}.log");
+
+            var logContent = $"""
+            ============================================
+            CRASH REPORT - {DateTime.Now:O}
+            ============================================
+
+            Exception Type: {exception.GetType().FullName}
+            Message: {exception.Message}
+
+            Stack Trace:
+            {exception.StackTrace}
+
+            """;
+
+            if (exception.InnerException != null)
+            {
+                logContent += $"""
+                Inner Exception: {exception.InnerException.GetType().FullName}
+                Inner Message: {exception.InnerException.Message}
+                Inner Stack Trace:
+                {exception.InnerException.StackTrace}
+
+                """;
+            }
+
+            // Add system info
+            logContent += $"""
+            System Info:
+            OS Version: {Environment.OSVersion.VersionString}
+            .NET Version: {Environment.Version}
+            Machine Name: {Environment.MachineName}
+            User Name: {Environment.UserName}
+            App Version: {typeof(App).Assembly.GetName().Version}
+
+            ============================================
+
+            """;
+
+            File.WriteAllText(logFile, logContent);
+
+            // Also append to main crash log for chronological overview
+            var mainLog = Path.Combine(folder, "crash.log");
+            File.AppendAllText(mainLog, $"[{DateTime.Now:O}] {exception.GetType().Name}: {exception.Message}\n");
         }
         catch
         {

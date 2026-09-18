@@ -39,6 +39,13 @@ public sealed class ChatItem : INotifyPropertyChanged
         set { _isActive = value; OnPropertyChanged(); }
     }
 
+    private bool _isPinned;
+    public bool IsPinned
+    {
+        get => _isPinned;
+        set { _isPinned = value; OnPropertyChanged(); }
+    }
+
     public ObservableCollection<MessageItem> Messages { get; } = new();
 
     /// <summary>"h:mm tt" for today, "d MMM" otherwise.</summary>

@@ -62,6 +62,17 @@ public partial class MainWindow : Window
     private const double LeftEyeBaseX = 18;
     private const double RightEyeBaseX = 34;
     private const double EyeBaseY = 22;
+    private BotState _currentBotState = BotState.Idle;
+    private DateTime _lastUserInput = DateTime.Now;
+
+    private enum BotState
+    {
+        Idle,
+        Listening,
+        Thinking,
+        Talking,
+        IdleSleep
+    }
 
     public MainWindow()
     {
@@ -274,16 +285,120 @@ public partial class MainWindow : Window
     {
         var query = SearchBox?.Text ?? string.Empty;
         IEnumerable<ChatItem> filtered = query.Trim().Length == 0
-            ? _allChats.OrderByDescending(c => c.UpdatedAt)
+            ? _allChats.OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.UpdatedAt)
             : _allChats.Where(c =>
                     c.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                     c.Preview.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(c => c.UpdatedAt);
+                .OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.UpdatedAt);
 
         _recentChats.Clear();
         foreach (var chat in filtered)
         {
             _recentChats.Add(chat);
+        }
+    }
+
+    private void ChatMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is ChatItem chat)
+        {
+            var contextMenu = button.ContextMenu;
+            if (contextMenu != null)
+            {
+                contextMenu.PlacementTarget = button;
+                contextMenu.IsOpen = true;
+            }
+        }
+    }
+
+    private void RenameChat_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem && menuItem.DataContext is ChatItem chat)
+        {
+            // Simple prompt for rename
+            var newTitle = PromptForInput("Enter new chat name:", chat.Title);
+            if (!string.IsNullOrWhiteSpace(newTitle))
+            {
+                chat.Title = newTitle.Trim();
+                if (_currentChat != null && _currentChat.Id == chat.Id)
+                {
+                    _currentChat.Title = newTitle.Trim();
+                }
+                _db.UpsertChat(chat.Id, chat.Title, chat.Preview, chat.IsArchived);
+                RefreshChatHeader();
+                RefreshRecentChats();
+            }
+        }
+    }
+
+    private string? PromptForInput(string prompt, string defaultValue = "")
+    {
+        var dialog = new Window
+        {
+            Title = "FROX",
+            Width = 400,
+            Height = 150,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            ResizeMode = ResizeMode.NoResize,
+            Background = (Brush)FindResource("SidebarBrush")
+        };
+
+        var panel = new StackPanel { Margin = new Thickness(20) };
+        var label = new TextBlock { Text = prompt, Margin = new Thickness(0, 0, 0, 10) };
+        var textBox = new TextBox { Text = defaultValue, Padding = new Thickness(8), FontSize = 14 };
+        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 15, 0, 0) };
+        var okButton = new Button { Content = "OK", Width = 80, Margin = new Thickness(0, 0, 10, 0), IsDefault = true };
+        var cancelButton = new Button { Content = "Cancel", Width = 80, IsCancel = true };
+
+        okButton.Click += (s, e) => { dialog.DialogResult = true; dialog.Close(); };
+        cancelButton.Click += (s, e) => { dialog.DialogResult = false; dialog.Close(); };
+
+        buttonPanel.Children.Add(okButton);
+        buttonPanel.Children.Add(cancelButton);
+        panel.Children.Add(label);
+        panel.Children.Add(textBox);
+        panel.Children.Add(buttonPanel);
+        dialog.Content = panel;
+
+        textBox.Focus();
+        textBox.SelectAll();
+
+        return dialog.ShowDialog() == true ? textBox.Text : null;
+    }
+
+    private void TogglePinChat_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem && menuItem.DataContext is ChatItem chat)
+        {
+            chat.IsPinned = !chat.IsPinned;
+            if (_currentChat != null && _currentChat.Id == chat.Id)
+            {
+                _currentChat.IsPinned = chat.IsPinned;
+            }
+            _db.UpsertChat(chat.Id, chat.Title, chat.Preview, chat.IsArchived);
+            RefreshRecentChats();
+        }
+    }
+
+    private void DeleteChat_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem && menuItem.DataContext is ChatItem chat)
+        {
+            var result = MessageBox.Show($"Delete chat \"{chat.Title}\"?", "Delete Chat", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                _db.DeleteChatRecord(chat.Id);
+                _allChats.Remove(chat);
+                if (_currentChat != null && _currentChat.Id == chat.Id)
+                {
+                    SelectChat(_allChats.Count > 0 ? _allChats.OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.UpdatedAt).First() : null);
+                }
+                else
+                {
+                    RefreshRecentChats();
+                }
+            }
         }
     }
 
@@ -612,6 +727,12 @@ public partial class MainWindow : Window
         try
         {
             var reply = await GetReplyAsync(text);
+            // Switch to "talking" state briefly when response arrives
+            SetBotTalking();
+
+            // Brief pause in talking state to show animation
+            await Task.Delay(300);
+
             typing.Text = reply;
             typing.SentAt = DateTime.Now;
             typing.IsTyping = false;
@@ -696,6 +817,10 @@ public partial class MainWindow : Window
             MessageInput.Text = string.Empty;
         }
         MessageInput.Foreground = (Brush)FindResource("TextPrimaryBrush");
+
+        // Set bot to listening state when user focuses input
+        SetBotListening();
+        _lastUserInput = DateTime.Now;
     }
 
     private void MessageInput_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -705,6 +830,15 @@ public partial class MainWindow : Window
             MessageInput.Text = InputGhost;
             MessageInput.Foreground = (Brush)FindResource("TextFaintBrush");
         }
+
+        // Return bot to idle when input loses focus
+        SetBotIdle();
+    }
+
+    private void MessageInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        // Update last input time for idle detection
+        _lastUserInput = DateTime.Now;
     }
 
     private void SendMessage_Click(object sender, RoutedEventArgs e)
@@ -1052,28 +1186,42 @@ public partial class MainWindow : Window
 
     private void SetBotThinking()
     {
+        if (_currentBotState == BotState.Thinking) return;
+        _currentBotState = BotState.Thinking;
+
         // Stop any existing talking animation
         _talkingMouthTimer.Stop();
+
+        // Reset eyes to center
+        Canvas.SetLeft(LeftEye, LeftEyeBaseX);
+        Canvas.SetLeft(RightEye, RightEyeBaseX);
 
         // Start thinking eye wander: move eyes side to side every 700ms
         _thinkingEyeTimer.Stop();
         _thinkingEyeTimer.Interval = TimeSpan.FromMilliseconds(700);
         int phase = 0;
-        _thinkingEyeTimer.Tick += (s, e) =>
-        {
-            double off = phase switch { 1 => -4, 2 => 4, _ => 0 };
-            Canvas.SetLeft(LeftEye, LeftEyeBaseX + off);
-            Canvas.SetLeft(RightEye, RightEyeBaseX + off);
-            phase = (phase + 1) % 3;
-        };
+        _thinkingEyeTimer.Tick -= ThinkingEyeTimer_Tick; // Remove old handler if any
+        _thinkingEyeTimer.Tick += ThinkingEyeTimer_Tick;
         _thinkingEyeTimer.Start();
 
         // Set mouth to thinking (straight line)
         BotMouth.Data = Geometry.Parse("M 18,32 Q 24,32 30,32");
     }
 
+    private void ThinkingEyeTimer_Tick(object? sender, EventArgs e)
+    {
+        var phase = (int)(_thinkingEyeTimer.Tag ?? 0);
+        double off = phase switch { 1 => -4, 2 => 4, _ => 0 };
+        Canvas.SetLeft(LeftEye, LeftEyeBaseX + off);
+        Canvas.SetLeft(RightEye, RightEyeBaseX + off);
+        _thinkingEyeTimer.Tag = (phase + 1) % 3;
+    }
+
     private void SetBotTalking()
     {
+        if (_currentBotState == BotState.Talking) return;
+        _currentBotState = BotState.Talking;
+
         // Stop thinking eye wander
         _thinkingEyeTimer.Stop();
         Canvas.SetLeft(LeftEye, LeftEyeBaseX);
@@ -1083,23 +1231,46 @@ public partial class MainWindow : Window
         _talkingMouthTimer.Stop();
         _talkingMouthTimer.Interval = TimeSpan.FromMilliseconds(120);
         _mouthOpen = false;
-        _talkingMouthTimer.Tick += (s, e) =>
-        {
-            _mouthOpen = !_mouthOpen;
-            BotMouth.Data = _mouthOpen
-                ? Geometry.Parse("M 18,32 Q 24,36 30,32") // Down curve
-                : Geometry.Parse("M 18,32 Q 24,28 30,32"); // Up curve
-        };
+        _talkingMouthTimer.Tick -= TalkingMouthTimer_Tick; // Remove old handler if any
+        _talkingMouthTimer.Tick += TalkingMouthTimer_Tick;
         _talkingMouthTimer.Start();
+    }
+
+    private void TalkingMouthTimer_Tick(object? sender, EventArgs e)
+    {
+        _mouthOpen = !_mouthOpen;
+        BotMouth.Data = _mouthOpen
+            ? Geometry.Parse("M 18,32 Q 24,36 30,32") // Down curve
+            : Geometry.Parse("M 18,32 Q 24,28 30,32"); // Up curve
     }
 
     private void SetBotIdle()
     {
+        if (_currentBotState == BotState.Idle) return;
+        _currentBotState = BotState.Idle;
+
         // Stop all timers and reset to idle state
         _thinkingEyeTimer.Stop();
         _talkingMouthTimer.Stop();
         Canvas.SetLeft(LeftEye, LeftEyeBaseX);
         Canvas.SetLeft(RightEye, RightEyeBaseX);
         BotMouth.Data = Geometry.Parse("M 18,32 Q 24,32 30,32"); // Idle mouth
+    }
+
+    private void SetBotListening()
+    {
+        if (_currentBotState == BotState.Listening) return;
+        _currentBotState = BotState.Listening;
+
+        // Stop other animations
+        _thinkingEyeTimer.Stop();
+        _talkingMouthTimer.Stop();
+
+        // Reset eyes to center and slightly brighter (simulated by staying solid)
+        Canvas.SetLeft(LeftEye, LeftEyeBaseX);
+        Canvas.SetLeft(RightEye, RightEyeBaseX);
+
+        // Soft smile
+        BotMouth.Data = Geometry.Parse("M 18,32 Q 24,34 30,32");
     }
 }
