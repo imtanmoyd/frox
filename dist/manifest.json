@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "Frox AI Assistant",
+  "version": "0.1.0",
+  "description": "A reusable, voice-first AI assistant that lives in your browser.",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service-worker-loader.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Frox AI Assistant",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "commands": {
+    "push-to-talk": {
+      "suggested_key": {
+        "default": "Alt+Shift+F"
+      },
+      "description": "Open voice mode"
+    }
+  },
+  "content_scripts": [
+    {
+      "js": [
+        "assets/content.tsx-loader-D-Rul9Ur.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "assets/platform-gOD-WN1d.js",
+        "assets/content.tsx-oVM70eOo.js"
+      ],
+      "use_dynamic_url": false
+    }
+  ]
+}
