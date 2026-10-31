@@ -41,6 +41,7 @@
 - The pet overlay uses inline SVG and CSS only; its idle motion layers a slow body breathe, drifting float, antenna sway, orbit shimmer, and staggered sparkles. Action quick swap is transient UI state with six built-in moods/actions and an explicit random action. Character skins remain configurable in Settings. Motion pauses on hidden tabs and honors reduced-motion preferences. No remote animation/font assets or permissions are added.
 - Engine routing derives only the hostname from the user-initiated chat sender URL. Site classification, proactive suggestions, transcription, and TTS are not implemented.
 - The current voice page only captures mic levels locally; transcription and TTS are not implemented.
+- `docs/` is a static, dependency-free GitHub Pages landing site. It links to the public source, documents unpacked extension setup, and marks Web Store and desktop downloads as unavailable until released.
 
 ## Deferred platform details
 - The `PlatformAdapter` separates reusable logic from `chrome.*` storage and runtime APIs.

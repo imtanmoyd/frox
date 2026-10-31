@@ -5,6 +5,7 @@
 - Existing deletions from the original FROX project remain untouched; no new permissions or project dependencies were added for this UI milestone.
 
 ## Works
+- New static marketing site at `docs/` uses responsive dark glass/bento styling, inline pet artwork, local-only assets, current feature/privacy notes, and GitHub Pages setup guidance.
 - Top-frame Shadow DOM widget, draggable bot, responsive chat, thread history, attachments, markdown/code copy, stream stop/regenerate.
 - Overlay now has a floating orbiting pet with layered idle breathing, antenna sway, orbit shimmer, and staggered sparkles, plus hover pop and the animated action menu (idle, dance, sleep, poke, recharge, low battery, random); character skins remain in Settings.
 - Pet is hidden while the full chat panel is open; quick-swap menu is positioned within the viewport, including near the bottom edge.
@@ -20,6 +21,7 @@
 - Voice capture has no transcription or speech playback.
 - Page awareness, proactive suggestions, semantic vector recall, engine packaging, and desktop launcher are not implemented.
 - No automated Chrome end-to-end testing; manually load `dist/` and test with your own provider configuration.
+- Landing page is not published yet; Vercel deployment is blocked on signing in to the user's Vercel account and importing the GitHub repo. Setup steps are in `docs/README.md`. Repository has no root license file, so code reuse terms still need a license decision.
 - `npm install` reported 6 dependency audit advisories; they have not been investigated.
 
 ## Next
@@ -28,6 +30,8 @@
 3. Ask before adding vector/embedding or voice dependencies.
 
 ## Current validation
+- Site: local preview at `http://127.0.0.1:4173` returned HTTP 200; responsive iframe checks at 320, 360, 390, 768, 1024, and 1440px found no horizontal overflow. No external assets were requested.
+- Vercel: dashboard checked, but it redirects to login; no Vercel CLI, project link, or token is available locally. No deployment was created.
 - Extension: 11 Vitest tests, typecheck, ESLint, and MV3 production build passed.
 - Engine: 24 pytest tests and `pip check` passed.
 - Preview: action animations and menu fit/open/close passed at 320×780; browser UI used a mock provider and synthetic stream.
