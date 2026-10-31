@@ -178,6 +178,9 @@ function SettingsPage() {
           <input value={keyInput} onChange={(event) => { setKeyInput(event.target.value); setSaved(false); }} type="password" autoComplete="new-password" placeholder={settings.hasApiKey ? "Key saved — enter a replacement or clear it" : "Paste your provider key"} />
         </label>
         <p className="field-note">Keys are never sent to websites. Local extension storage is not encrypted by Chrome; use a device you trust.</p>
+        <p className="field-note free-provider-links">
+          Free chat options: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a> · <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">GroqCloud</a> · <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer">OpenRouter models</a> · <a href="https://ollama.com/download" target="_blank" rel="noreferrer">Ollama (local)</a>. Cloud quotas change; Google’s free tier may use prompts to improve its products. Avoid sensitive data.
+        </p>
       </section>
       <section className="settings-card">
         <div className="card-heading"><div><h2>Appearance & voice</h2><p>Choose the assistant’s visual style and in-page voice shortcut.</p></div></div>
@@ -189,7 +192,7 @@ function SettingsPage() {
           </label>
           <label>Character
             <select value={settings.skin} onChange={(event) => update("skin", event.target.value as AssistantSettings["skin"])}>
-              <option value="nova">Nova</option><option value="mika">Mika</option><option value="orbit">Orbit</option>
+              <option value="nova">Nova</option><option value="mika">Mika</option><option value="orbit">Orbit</option><option value="echo">Echo</option>
             </select>
           </label>
         </div>

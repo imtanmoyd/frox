@@ -22,11 +22,11 @@ keeps its direct-provider Mode A fallback.
    python -m pip install -e ".[dev]"
    ```
 
-4. Copy `.env.example` to `.env`, set `FROX_EXTENSION_ID` to the installed
-   extension ID, and add keys for any cloud providers you want to use. The
-   engine refuses to start without a valid extension ID. Model lists and
-   fallback order are configurable there; set `FROX_OLLAMA_ENABLED=true` to
-   enable Ollama, which must use a loopback URL.
+4. Edit `.env` (or copy `.env.example` first), set `FROX_EXTENSION_ID` to the
+   installed extension ID, and add keys for any cloud providers you want to
+   use. The engine refuses to start without a valid extension ID. Model lists
+   and fallback order are configurable there; set `FROX_OLLAMA_ENABLED=true`
+   to enable Ollama, which must use a loopback URL.
 5. Start the engine with `frox-engine` (or `python -m frox_engine.main`).
    It binds only to `127.0.0.1:8765`.
 
@@ -70,3 +70,8 @@ Ollama is opt-in and restricted to loopback to keep its inference local. Page-aw
 sends no page content to the engine; it derives only the hostname for an
 explicit chat. Image attachments remain on Mode A. Do not put credentials in
 the tracked `.env.example`; the real `.env` is ignored.
+
+For Google AI Studio, update `FROX_GOOGLE_API_KEY` in `.env` whenever you
+rotate the key. Google is listed first in the local provider fallback order;
+the default model list includes `gemini-flash-latest`. Never commit `.env` or
+paste API keys into source files, screenshots, or chat messages.

@@ -1,4 +1,4 @@
-import { Component, useEffect, useMemo, useRef, useState, type ChangeEvent, type ErrorInfo, type FormEvent, type PointerEvent, type ReactNode } from "react";
+import { Component, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ErrorInfo, type FormEvent, type PointerEvent, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { createChatStore } from "@frox/core";
 import type { AssistantSettings, ChatMessage, ChatThread, LLMStreamContentPart, PlatformAdapter, WidgetPosition } from "@frox/core";
@@ -17,6 +17,15 @@ const DEFAULT_SETTINGS: AssistantSettings = {
   hotkey: "Alt+Shift+F",
   disabledSites: []
 };
+const PET_ACTIONS = [
+  { id: "idle", name: "Idle", icon: "✧", message: "Just floating by, keeping you company." },
+  { id: "dance", name: "Dance", icon: "♫", message: "A tiny dance break. You deserve it!" },
+  { id: "sleeping", name: "Sleep", icon: "☾", message: "Power nap mode. Tap me whenever you need me." },
+  { id: "poking", name: "Poke", icon: "☝", message: "Boop! I’m awake and ready." },
+  { id: "plugged", name: "Recharge", icon: "ϟ", message: "Recharging with a little extra sparkle." },
+  { id: "low-battery", name: "Low battery", icon: "▰", message: "Running low on stardust. Let’s take it easy." }
+] as const;
+type PetAction = typeof PET_ACTIONS[number]["id"];
 
 interface WidgetProps {
   platform: PlatformAdapter;
@@ -122,28 +131,36 @@ function MessageContent({ content, onCopy }: { content: string; onCopy: (text: s
 }
 
 function AssistantIcon({ skin }: { skin: AssistantSettings["skin"] }) {
+  const gradientId = useId().replace(/:/g, "");
   const shell = skin === "mika"
     ? ["#d0fff0", "#69cbb1"]
     : skin === "orbit"
       ? ["#d8f3ff", "#7198ed"]
-      : ["#d7ccff", "#9385f5"];
+      : skin === "echo"
+        ? ["#ffe0d8", "#dd83a8"]
+        : ["#d7ccff", "#9385f5"];
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true" className={`frox-bot-illustration skin-${skin}`}>
       <defs>
-        <linearGradient id="frox-shell" x1="0" x2="1" y1="0" y2="1">
+        <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
           <stop offset="0" stopColor={shell[0]} />
           <stop offset="1" stopColor={shell[1]} />
         </linearGradient>
       </defs>
+      <ellipse className="frox-bot-orbit" cx="32" cy="36" rx="28" ry="13" transform="rotate(-28 32 36)" />
+      <path className="frox-bot-sparkle sparkle-one" d="M8 11l1.5 3.5L13 16l-3.5 1.5L8 21l-1.5-3.5L3 16l3.5-1.5z" />
+      <path className="frox-bot-sparkle sparkle-two" d="M54 43l1.2 2.8L58 47l-2.8 1.2L54 51l-1.2-2.8L50 47l2.8-1.2z" />
+      <path className="frox-bot-sparkle sparkle-three" d="M48 9l1 2.2 2.2 1-2.2 1L48 15l-1-2.2-2.2-1 2.2-1z" />
+      <circle className="frox-bot-star" cx="54" cy="14" r="2" />
       <path d="M32 6a3 3 0 0 1 3 3v5" fill="none" stroke="#b6a8ff" strokeWidth="3" strokeLinecap="round" />
       <circle cx="35" cy="9" r="3" fill="#c6bcff" />
-      <rect x="11" y="15" width="42" height="39" rx="15" fill="url(#frox-shell)" />
+      <rect x="11" y="15" width="42" height="39" rx="15" fill={`url(#${gradientId})`} />
       <rect x="16" y="22" width="32" height="23" rx="10" fill="#1b1930" />
       <ellipse className="frox-eye" cx="25" cy="33" rx="2.6" ry="3.7" fill="#bff8ff" />
       <ellipse className="frox-eye" cx="39" cy="33" rx="2.6" ry="3.7" fill="#bff8ff" />
       <path d="M26 50h12" stroke="#6251c8" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="10" cy="32" r="3" fill="#9a8cff" />
-      <circle cx="54" cy="32" r="3" fill="#9a8cff" />
+      <circle cx="10" cy="32" r="3" fill={shell[0]} />
+      <circle cx="54" cy="32" r="3" fill={shell[1]} />
     </svg>
   );
 }
@@ -191,6 +208,11 @@ export function Widget({ platform, siteHost }: WidgetProps) {
   const [open, setOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [botState, setBotState] = useState<"idle" | "hover" | "listening" | "thinking" | "speaking" | "sleeping" | "notification">("idle");
+  const [bubbleOpen, setBubbleOpen] = useState(false);
+  const [bubbleDismissed, setBubbleDismissed] = useState(false);
+  const [quickMenuState, setQuickMenuState] = useState<"closed" | "open" | "closing">("closed");
+  const [petAction, setPetAction] = useState<PetAction>("idle");
+  const [petNotice, setPetNotice] = useState("");
   const [visible, setVisible] = useState(document.visibilityState === "visible");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -203,8 +225,15 @@ export function Widget({ platform, siteHost }: WidgetProps) {
   const cancelStream = useRef<(() => void) | null>(null);
   const streamingMessage = useRef<{ threadId: string; messageId: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const quickMenuTimer = useRef<number | undefined>(undefined);
+  const actionTimer = useRef<number | undefined>(undefined);
   const activeThread = threads.find((thread) => thread.id === activeThreadId);
   const messages = activeThread?.messages ?? [];
+
+  useEffect(() => () => {
+    window.clearTimeout(quickMenuTimer.current);
+    window.clearTimeout(actionTimer.current);
+  }, []);
 
   const reportError = (error: Error) => {
     void platform.messaging.send({ type: "assistant:error-log", error: { message: error.message, stack: error.stack } });
@@ -473,6 +502,43 @@ export function Widget({ platform, siteHost }: WidgetProps) {
     });
   };
 
+  const closeQuickMenu = () => {
+    if (quickMenuState === "closed") return;
+    window.clearTimeout(quickMenuTimer.current);
+    setQuickMenuState("closing");
+    quickMenuTimer.current = window.setTimeout(() => setQuickMenuState("closed"), 180);
+  };
+
+  const toggleQuickMenu = () => {
+    if (quickMenuState === "open") {
+      closeQuickMenu();
+      return;
+    }
+    window.clearTimeout(quickMenuTimer.current);
+    setQuickMenuState("open");
+  };
+
+  const selectPetAction = (action: PetAction) => {
+    const selected = PET_ACTIONS.find((item) => item.id === action);
+    if (!selected) return;
+    window.clearTimeout(actionTimer.current);
+    setPetAction(action);
+    setBotState("idle");
+    setPetNotice(selected.message);
+    setBubbleDismissed(false);
+    setBubbleOpen(true);
+    if (action !== "idle" && action !== "sleeping") {
+      actionTimer.current = window.setTimeout(() => setPetAction("idle"), 2600);
+    }
+    closeQuickMenu();
+  };
+
+  const surprisePet = () => {
+    const choices = PET_ACTIONS.filter((action) => action.id !== petAction);
+    const selected = choices[Math.floor(Math.random() * choices.length)];
+    selectPetAction(selected.id);
+  };
+
   const stopResponse = () => {
     cancelStream.current?.();
     cancelStream.current = null;
@@ -489,33 +555,118 @@ export function Widget({ platform, siteHost }: WidgetProps) {
     setRenameId(null);
   };
 
+  const petSide = position.x < window.innerWidth / 2 ? "left" : "right";
+  const bubbleLeft = petSide === "left"
+    ? Math.max(10, Math.min(position.x + 74, window.innerWidth - 234))
+    : Math.max(10, Math.min(position.x - 154, window.innerWidth - 234));
+  const bubbleTop = position.y < 142
+    ? Math.min(position.y + 78, window.innerHeight - 132)
+    : position.y - 132;
+  const swapLeft = petSide === "left"
+    ? Math.max(10, Math.min(position.x + 72, window.innerWidth - 262))
+    : Math.max(10, position.x - 262);
+  const swapTop = Math.max(10, Math.min(position.y + 12, window.innerHeight - 222));
+  const showBubble = !open && quickMenuState === "closed" && !bubbleDismissed && (botState === "notification" || bubbleOpen);
+
   return (
-    <div className="frox-widget" data-theme={settings.theme} data-visible={visible}>
-      <button
-        className={`frox-bot-button state-${botState}`}
-        type="button"
+    <div className="frox-widget" data-theme={settings.theme} data-visible={visible} data-open={open}>
+      <div
+        className={`frox-pet-cluster is-${petSide}`}
         style={{ left: position.x, top: position.y }}
-        aria-label={open ? "Close Frox assistant" : "Open Frox assistant"}
-        aria-expanded={open}
-        onPointerDown={beginDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onPointerEnter={() => { if (!open && botState !== "notification") setBotState("hover"); }}
-        onPointerLeave={() => { if (!open && botState === "hover") setBotState("idle"); }}
-        onClick={() => {
-          if (wasDragged) {
-            setWasDragged(false);
-            return;
+        onPointerEnter={() => {
+          if (!open) {
+            setBotState((current) => current === "notification" ? current : "hover");
+            setBubbleOpen(true);
           }
-          setOpen(!open);
-          setVoiceMode(false);
-          setBotState("idle");
+        }}
+        onPointerLeave={() => {
+          if (!open && botState === "hover") setBotState("idle");
         }}
       >
-        <AssistantIcon skin={settings.skin} />
-      </button>
-      {botState === "notification" && !open && <button className="frox-bubble" type="button" onClick={() => setOpen(true)}>Let’s get connected</button>}
+        <button
+          className={`frox-bot-button state-${botState} action-${petAction}`}
+          type="button"
+          aria-label={open ? "Close Frox assistant" : "Open Frox assistant"}
+          aria-expanded={open}
+          onPointerDown={beginDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onClick={() => {
+            if (wasDragged) {
+              setWasDragged(false);
+              return;
+            }
+            setOpen(!open);
+            setBubbleOpen(false);
+            setQuickMenuState("closed");
+            window.clearTimeout(quickMenuTimer.current);
+            setVoiceMode(false);
+            setBotState("idle");
+          }}
+        >
+          <AssistantIcon skin={settings.skin} />
+        </button>
+        <button
+          className={`frox-swap-trigger ${quickMenuState === "open" ? "is-active" : ""}`}
+          type="button"
+          aria-label="Open pet actions"
+          aria-expanded={quickMenuState === "open"}
+          title="Pet actions"
+          onClick={toggleQuickMenu}
+        >
+          <span aria-hidden="true">✦</span>
+        </button>
+      </div>
+      {showBubble && <section
+        className={`frox-bubble is-${petSide}`}
+        style={{ left: bubbleLeft, top: bubbleTop }}
+        aria-label="Frox companion message"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="frox-bubble-heading">
+          <span className="frox-bubble-status" />
+          <span>{botState === "notification" ? "READY WHEN YOU ARE" : "YOUR BROWSER SIDEKICK"}</span>
+          <button type="button" aria-label="Dismiss companion message" onClick={() => {
+            setBubbleOpen(false);
+            setBubbleDismissed(true);
+            if (botState === "notification") setBotState("idle");
+          }}>×</button>
+        </div>
+        <p>{petNotice || (botState === "notification"
+          ? "Connect a provider in Settings, or start your local engine. I’ll be right here when you’re ready."
+          : "Hey! Need a hand with something? I’m just a tap away.")}</p>
+        <button className="frox-bubble-chat" type="button" onClick={() => {
+          setOpen(true);
+          setBubbleOpen(false);
+          setBotState("idle");
+        }}>Let’s chat <span aria-hidden="true">↗</span></button>
+      </section>}
+      {quickMenuState !== "closed" && !open && <section
+        className={`frox-swap-menu is-${petSide} ${quickMenuState === "closing" ? "is-closing" : "is-opening"}`}
+        style={{ left: swapLeft, top: swapTop }}
+        aria-label="Pet actions"
+        aria-hidden={quickMenuState === "closing"}
+      >
+        <header><span>MOOD & MOMENTS</span><button type="button" aria-label="Close pet actions" onClick={closeQuickMenu}>×</button></header>
+        <div className="frox-action-options">
+          {PET_ACTIONS.map((action) => <button
+            key={action.id}
+            className={petAction === action.id ? "is-selected" : ""}
+            type="button"
+            aria-label={`Make Frox ${action.name.toLowerCase()}`}
+            aria-pressed={petAction === action.id}
+            onClick={() => selectPetAction(action.id)}
+          >
+            <span className={`frox-action-icon action-${action.id}`} aria-hidden="true">{action.icon}</span>
+            <span className="frox-action-name">{action.name}</span>
+          </button>)}
+        </div>
+        <button className="frox-surprise-action" type="button" onClick={surprisePet}>
+          <span aria-hidden="true">✦</span> Surprise me <span className="frox-surprise-hint">random action</span>
+        </button>
+      </section>}
       {open && <section className="frox-panel" role="dialog" aria-label="Frox AI assistant">
         <header className="frox-header">
           <div className="frox-brand">

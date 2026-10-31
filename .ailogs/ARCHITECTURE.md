@@ -21,6 +21,7 @@
 ## Decisions
 - Use a monorepo boundary between reusable `core`/`ui` packages and host-specific shells.
 - Use Shadow DOM to isolate host-page styles and widget styles.
+- Keep the idle companion visually small and floating; bubble/menu remain separate accessible overlays anchored to its saved position. Character changes go through a narrow background message so provider secrets are not rewritten by content scripts.
 - Use Vite with CRXJS to produce the MV3 extension bundle.
 - `storage` is the only named permission; it supports settings, chat history, widget position, and local error logs.
 - `<all_urls>` host access is required for the requested all-site content script and service-worker provider requests. It is not a named `permissions` entry.
@@ -37,6 +38,7 @@
 - Fact extraction is conservative, local-only, limited to user messages, and skips credential-like content. The memory API provides CRUD, export, and forget-all.
 - Vector search and embedding/model downloads are deferred; SQLite/FTS5 uses no added memory dependency.
 - The extension bootstraps and authenticates engine calls from the background worker, routes text-only chats when engine providers are configured, and preserves direct-provider fallback. Popup reports engine status; Settings provides memory controls.
+- The pet overlay uses inline SVG and CSS only; its idle motion layers a slow body breathe, drifting float, antenna sway, orbit shimmer, and staggered sparkles. Action quick swap is transient UI state with six built-in moods/actions and an explicit random action. Character skins remain configurable in Settings. Motion pauses on hidden tabs and honors reduced-motion preferences. No remote animation/font assets or permissions are added.
 - Engine routing derives only the hostname from the user-initiated chat sender URL. Site classification, proactive suggestions, transcription, and TTS are not implemented.
 - The current voice page only captures mic levels locally; transcription and TTS are not implemented.
 

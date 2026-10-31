@@ -5,6 +5,7 @@
 | MV3 monorepo and build scaffold | done |
 | Platform adapters for extension storage, messaging, and hotkeys | done |
 | Shadow DOM animated bot, top-frame guard, restricted-page skips | done |
+| Floating pet overlay, contextual speech bubble, and animated action quick swap | done (6 actions + random) |
 | Dragging, edge snapping, and persisted position | done |
 | Multi-thread chat, storage, markdown, attachments, stop/regenerate | done |
 | Direct OpenAI-compatible and Anthropic streaming | done |

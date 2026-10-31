@@ -1,7 +1,7 @@
 export type AssistantState = "idle" | "hover" | "listening" | "thinking" | "speaking" | "sleeping" | "notification";
 export type ThemeName = "dark" | "light";
 export type ProviderName = "openai" | "anthropic";
-export type SkinName = "nova" | "mika" | "orbit";
+export type SkinName = "nova" | "mika" | "orbit" | "echo";
 
 export interface ChatMessage {
   id: string;

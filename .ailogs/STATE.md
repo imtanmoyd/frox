@@ -1,35 +1,33 @@
 # Project State
 
 ## Snapshot
-- The MV3 extension and initial local-engine milestones are implemented.
-- Existing deletions from the original FROX project are intentional worktree state and remain untouched.
-- Engine dependencies were explicitly approved. No new Chrome permission was added.
+- MV3 extension and the initial local-engine milestones are implemented.
+- Existing deletions from the original FROX project remain untouched; no new permissions or project dependencies were added for this UI milestone.
 
 ## Works
-- MV3 content script mounts one Shadow DOM widget in the top frame and skips restricted/browser/PDF pages.
-- Animated, draggable bot and responsive chat panel; threads, attachments, markdown/code copy, stream stop/regenerate.
-- Direct OpenAI-compatible and Anthropic streaming; extension API keys remain worker-only.
-- Settings, popup, site blocklist, themes/skins, local error log, microphone level UI, and voice hotkey.
-- FastAPI engine binds to loopback, fails closed without an extension ID, and limits CORS to that extension origin.
-- Exact-origin `/bootstrap` returns a per-process token; all other API routes require `X-Frox-Token`.
-- OpenRouter, Groq, Google AI Studio, and loopback Ollama have ordered fallback, capped retries, and 429 model rotation.
-- SQLite stores chats, messages, facts, and site notes; FTS5 ranks local recall without model downloads or embedding dependencies.
-- Memory API supports list, create/edit/delete, export, and forget-all; explicit chats can recall relevant local memories.
-- Background probes and routes text-only chats through the engine, falls back to Mode A, and exposes engine/memory controls in popup and Settings.
-- Engine tests: 24 passed; extension tests: 11 passed; typecheck, lint, Python compile, `pip check`, and MV3 build pass.
+- Top-frame Shadow DOM widget, draggable bot, responsive chat, thread history, attachments, markdown/code copy, stream stop/regenerate.
+- Overlay now has a floating orbiting pet with layered idle breathing, antenna sway, orbit shimmer, and staggered sparkles, plus hover pop and the animated action menu (idle, dance, sleep, poke, recharge, low battery, random); character skins remain in Settings.
+- Pet is hidden while the full chat panel is open; quick-swap menu is positioned within the viewport, including near the bottom edge.
+- Mode A direct OpenAI-compatible/Anthropic streaming and Mode B local-engine text chat with fallback.
+- Settings links to Google AI Studio, GroqCloud, OpenRouter model catalog, and local Ollama; Google free-tier data-use caution is shown.
+- FastAPI loopback engine with extension-origin token bootstrap, provider fallback, SQLite/FTS5 memory, and Settings controls.
+- Ignored `apps/engine/.env` is ready for local Google credentials and Gemini model selection. No API key was copied from chat or sent to Google; rotate the key shared in chat before using it.
+- `npm.cmd test`: 11 passed; typecheck, lint, and MV3 build pass after the layered pet animation polish. Engine pytest: 24 passed; `pip check` passes.
+- Local Vite preview responds at `http://127.0.0.1:5173/options.html`; widget preview verified Dance/Poke animations, menu open/close, and bounds at 320×780. No actual provider call was made.
 
 ## Broken / Missing
+- Local `.env` has no credentials or extension ID yet, and no engine/Ollama listener is running; live model chat remains unverified.
 - Voice capture has no transcription or speech playback.
-- Page awareness, proactive suggestions, vector/semantic search, engine packaging, and desktop launcher are not implemented.
-- No automated Chrome end-to-end verification; browser behavior still needs manual testing.
+- Page awareness, proactive suggestions, semantic vector recall, engine packaging, and desktop launcher are not implemented.
+- No automated Chrome end-to-end testing; manually load `dist/` and test with your own provider configuration.
 - `npm install` reported 6 dependency audit advisories; they have not been investigated.
 
 ## Next
-1. Implement privacy-first page awareness only after defining consent, sensitive-domain, and blocklist behavior.
-2. Ask before adding vector/embedding or speech dependencies; keep SQLite keyword recall as the current low-resource baseline.
-3. Implement offline voice and engine packaging/desktop integration as separately verified milestones.
+1. Load `dist/` in Chrome and test pet actions, provider setup, real chat stream, and Mode A fallback.
+2. Keep site-awareness/privacy behavior explicit before implementing proactive suggestions.
+3. Ask before adding vector/embedding or voice dependencies.
 
 ## Current validation
-- `npm.cmd test`: 3 files, 11 tests passed.
-- `npm.cmd run typecheck`, `npm.cmd run lint`, and `npm.cmd run build`: passed.
-- `apps/engine`: 24 pytest cases passed; Python compile check and `pip check` passed.
+- Extension: 11 Vitest tests, typecheck, ESLint, and MV3 production build passed.
+- Engine: 24 pytest tests and `pip check` passed.
+- Preview: action animations and menu fit/open/close passed at 320×780; browser UI used a mock provider and synthetic stream.
