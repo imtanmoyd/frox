@@ -1,5 +1,5 @@
 import { createProvider } from "@frox/core";
-import type { AssistantSettings, LLMContentPart, LLMMessage } from "@frox/core";
+import type { AssistantSettings, LLMContentPart, LLMMessage, SkinName } from "@frox/core";
 import {
   getEngineStatus,
   isEngineUnavailable,
@@ -28,6 +28,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function isSkinName(value: unknown): value is SkinName {
+  return value === "nova" || value === "mika" || value === "orbit" || value === "echo";
+}
+
 async function loadSettings(includeSecret = false): Promise<AssistantSettings> {
   const stored = await chrome.storage.local.get([SETTINGS_KEY, SECRET_KEY]);
   const partial = isRecord(stored[SETTINGS_KEY]) ? stored[SETTINGS_KEY] : {};
@@ -38,7 +42,7 @@ async function loadSettings(includeSecret = false): Promise<AssistantSettings> {
     model: typeof partial.model === "string" ? partial.model : DEFAULT_SETTINGS.model,
     baseUrl: typeof partial.baseUrl === "string" ? partial.baseUrl : DEFAULT_SETTINGS.baseUrl,
     theme: partial.theme === "light" ? "light" : "dark",
-    skin: partial.skin === "mika" || partial.skin === "orbit" ? partial.skin : "nova",
+    skin: isSkinName(partial.skin) ? partial.skin : "nova",
     hotkey: typeof partial.hotkey === "string" ? partial.hotkey : DEFAULT_SETTINGS.hotkey,
     disabledSites: Array.isArray(partial.disabledSites)
       ? partial.disabledSites.filter((site): site is string => typeof site === "string")
@@ -54,7 +58,7 @@ async function saveSettings(value: unknown): Promise<AssistantSettings> {
   const current = await loadSettings(true);
   const provider = value.provider === "anthropic" ? "anthropic" : value.provider === "openai" ? "openai" : current.provider;
   const theme = value.theme === "light" ? "light" : value.theme === "dark" ? "dark" : current.theme;
-  const skin = value.skin === "nova" || value.skin === "mika" || value.skin === "orbit" ? value.skin : current.skin;
+  const skin = isSkinName(value.skin) ? value.skin : current.skin;
   const next: AssistantSettings = {
     ...current,
     provider,
