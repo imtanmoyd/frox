@@ -16,18 +16,24 @@ provider secret.
 
 ## Vercel
 
-Import `imtanmoyd/frox` and use:
+Import the private GitHub repository `imtanmoyd/froxva` and use:
 
-- **Project name:** `froxva` (if available)
+- **Project name:** `frox` (if available)
 - **Root directory:** repository root (`.`), not `docs` or `apps/web`
-- **Build command:** `npm run build:web`
-- **Output directory:** `web-dist`
-- **Install command:** `npm install`
+- **Production domain:** `frox.vercel.app`
 
-These settings are also recorded in the root `vercel.json`. Confirm or add
-`froxva.vercel.app` under **Project → Settings → Domains** after the first
-deployment. Vercel authentication and project/domain assignment still require
-the account owner; no deployment has been created from this repository yet.
+The per-service install/build/output settings and routing are in the root
+`vercel.json`. Confirm or add `frox.vercel.app` under **Project → Settings →
+Domains** after the first deployment. Vercel authentication, private-repository
+access, and domain assignment require the account owner.
+
+The Vercel project declares two services. `app` serves the website and is the
+only service targeted by the catch-all rewrite. `engine` is registered as an
+internal FastAPI service and intentionally receives no public traffic: the
+current engine requires a configured extension ID and loopback-oriented SQLite
+storage, and is not yet a production cloud API. Do not add a rewrite to it
+until cloud authentication, persistent storage, and its deployment-specific
+configuration have been designed and reviewed.
 
 ## Chrome extension
 

@@ -24,7 +24,8 @@
 ## Decisions
 - Use a monorepo boundary between reusable `core`/`ui` packages and host-specific shells.
 - The root npm workspaces include `packages/*`, `apps/extension`, and `apps/web`; separate `dev/build:web` and `dev/build:extension` commands keep Vercel and MV3 outputs independent.
-- Vercel builds from repository root through `vercel.json` and emits `web-dist/`; the extension continues to emit `dist/` for Load unpacked.
+- Vercel's root `vercel.json` declares the `app` (Vite, root `.`) and `engine` (FastAPI, root `apps/engine`) services. Only the app receives public traffic through the catch-all rewrite; the engine remains internal until its local-only auth and SQLite design is replaced for cloud operation.
+- Vercel app service emits `web-dist/`; the extension continues to emit `dist/` for Load unpacked.
 - The public landing page remains in `apps/web`; `docs/` contains project and deployment documentation rather than a second copy of the site.
 - `packages/core/src/conversation.ts` provides the shared short, emotionally considerate system prompt, 16-message history window, and 512-token output cap used by web and extension chats; the engine applies the same cap.
 - Browser web credentials and chats are local to the visitor's browser but not encrypted. Provider CORS support is provider-dependent; requests never pass through Frox/Vercel.

@@ -75,3 +75,14 @@ For Google AI Studio, update `FROX_GOOGLE_API_KEY` in `.env` whenever you
 rotate the key. Google is listed first in the local provider fallback order;
 the default model list includes `gemini-flash-latest`. Never commit `.env` or
 paste API keys into source files, screenshots, or chat messages.
+
+## Vercel service status
+
+The root `vercel.json` registers this application as an internal FastAPI
+service for multi-service project builds. It is intentionally not exposed by
+public rewrites. The current engine is designed for local loopback use: it
+requires `FROX_EXTENSION_ID`, uses SQLite on local disk, and its startup token
+is process-local. Do not route public traffic to this service until cloud
+authentication, durable storage, and serverless lifecycle behavior are
+implemented and reviewed. `requirements.txt` installs this project so runtime
+dependencies remain defined in `pyproject.toml`.
