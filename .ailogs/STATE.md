@@ -1,37 +1,38 @@
 # Project State
 
 ## Snapshot
-- MV3 extension and the initial local-engine milestones are implemented.
-- Existing deletions from the original FROX project remain untouched; no new permissions or project dependencies were added for this UI milestone.
+- Frox is a multi-target workspace: reusable `packages/core` and `packages/ui`, a public web app, an MV3 extension, and an optional local Python engine.
+- The website is an interactive product site, not a static-only landing page; it mounts the shared animated companion and multi-chat UI.
 
 ## Works
-- New static marketing site at `docs/` uses responsive dark glass/bento styling, inline pet artwork, local-only assets, current feature/privacy notes, and GitHub Pages setup guidance.
-- Top-frame Shadow DOM widget, draggable bot, responsive chat, thread history, attachments, markdown/code copy, stream stop/regenerate.
-- Overlay now has a floating orbiting pet with layered idle breathing, antenna sway, orbit shimmer, and staggered sparkles, plus hover pop and the animated action menu (idle, dance, sleep, poke, recharge, low battery, random); character skins remain in Settings.
-- Pet is hidden while the full chat panel is open; quick-swap menu is positioned within the viewport, including near the bottom edge.
-- Mode A direct OpenAI-compatible/Anthropic streaming and Mode B local-engine text chat with fallback.
-- Settings links to Google AI Studio, GroqCloud, OpenRouter model catalog, and local Ollama; Google free-tier data-use caution is shown.
-- FastAPI loopback engine with extension-origin token bootstrap, provider fallback, SQLite/FTS5 memory, and Settings controls.
-- Ignored `apps/engine/.env` is ready for local Google credentials and Gemini model selection. No API key was copied from chat or sent to Google; rotate the key shared in chat before using it.
-- `npm.cmd test`: 11 passed; typecheck, lint, and MV3 build pass after the layered pet animation polish. Engine pytest: 24 passed; `pip check` passes.
-- Local Vite preview responds at `http://127.0.0.1:5173/options.html`; widget preview verified Dance/Poke animations, menu open/close, and bounds at 320×780. No actual provider call was made.
+- `apps/web` is a Vite app with responsive landing page, Shadow DOM bot, chat threads, streaming, browser-local persistence, provider settings, and clear-data action.
+- Web BYOK streaming goes directly from the browser to the selected provider; Frox/Vercel does not receive messages or API keys. localStorage is not encrypted and is documented as such.
+- Shared chat uses a concise, emotionally considerate system instruction, sends up to 16 recent messages, and requests at most 512 output tokens in browser, extension, and local-engine provider paths.
+- Web settings include OpenAI-compatible presets for OpenAI, OpenRouter, Groq, Google AI Studio, and local Ollama, plus Anthropic.
+- Vercel root config builds `web-dist/` from the repository root; extension build remains independently available in `dist/`.
+- Shared widget UI, state, provider adapters, and platform interfaces live in `packages/`; Chrome-specific APIs remain in `apps/extension`.
+- MV3 extension, Mode A direct provider streaming, Mode B local-engine fallback, popup/options, and existing provider/memory routes remain intact.
+- FastAPI loopback engine with extension-origin token bootstrap, provider fallback, SQLite/FTS5 memory, and settings controls is present.
+- Electron host boundary is documented in `apps/desktop/README.md`; no Electron dependency/runtime has been added.
+- `npm test`: 13 passed; typecheck, lint, web production build, and MV3 production build pass.
+- Production-site browser test used a mocked SSE provider response; chat rendered, survived reload, stored locally, and the landing CTA opened the widget. Responsive checks passed at 320, 360, 390, 768, 1024, and 1440px.
 
 ## Broken / Missing
-- Local `.env` has no credentials or extension ID yet, and no engine/Ollama listener is running; live model chat remains unverified.
-- Voice capture has no transcription or speech playback.
-- Page awareness, proactive suggestions, semantic vector recall, engine packaging, and desktop launcher are not implemented.
-- No automated Chrome end-to-end testing; manually load `dist/` and test with your own provider configuration.
-- Landing page source and Vercel setup steps are pushed to `main` (commit `e4fc4a3`), but it is not published yet. Vercel deployment is blocked on signing in to the user's account and importing the GitHub repo. `froxva.vercel.app` currently returns `DEPLOYMENT_NOT_FOUND`. Repository has no root license file, so code reuse terms still need a license decision.
-- `npm install` reported 6 dependency audit advisories; they have not been investigated.
+- Vercel account/project authorization is still required to publish at `froxva.vercel.app`; the repo now has root-based Vercel build settings, but no deployment was created.
+- Live provider calls were not made. Direct browser chat requires a user's provider key (or reachable local Ollama) and provider CORS support.
+- Website voice is disabled; the extension's voice recognition/speech playback and engine packaging remain incomplete.
+- Page awareness, proactive suggestions, semantic vector recall, and desktop runtime/launcher remain unimplemented.
+- There is no root `LICENSE`; choose a license before claiming formal open-source reuse terms.
+- npm reported dependency audit advisories previously; they have not been investigated.
 
 ## Next
-1. Load `dist/` in Chrome and test pet actions, provider setup, real chat stream, and Mode A fallback.
-2. Keep site-awareness/privacy behavior explicit before implementing proactive suggestions.
-3. Ask before adding vector/embedding or voice dependencies.
+1. Sign in to Vercel, import the repo with root directory `.`, and confirm `froxva.vercel.app`.
+2. Manually load the latest `dist/` in Chrome and test using a user-configured provider.
+3. Keep browser chat keys local; add no server proxy without an explicit secret-handling design.
+4. Obtain approval before adding Electron, voice, or vector/embedding dependencies.
 
 ## Current validation
-- Site: local preview at `http://127.0.0.1:4173` returned HTTP 200; responsive iframe checks at 320, 360, 390, 768, 1024, and 1440px found no horizontal overflow. No external assets were requested.
-- Vercel: dashboard checked, but it redirects to login; no Vercel CLI, project link, or token is available locally. The requested hostname returns HTTP 404 `DEPLOYMENT_NOT_FOUND`; no deployment was created.
-- Extension: 11 Vitest tests, typecheck, ESLint, and MV3 production build passed.
-- Engine: 24 pytest tests and `pip check` passed.
-- Preview: action animations and menu fit/open/close passed at 320×780; browser UI used a mock provider and synthetic stream.
+- Web: `npm run build:web`; Vercel JSON parsed successfully. Browser-tested live preview with a mocked provider (no real key/model call); verified responsive layout and chat persistence.
+- Extension: `npm run build:extension` passed.
+- Shared workspace: `npm run typecheck`, `npm run lint`, and `npm test` passed (12 tests).
+- Engine: `apps/engine/.venv/Scripts/python.exe -m pytest apps/engine/tests` — 24 passed, including system prompt forwarding, system-message exclusion from stored history, and output-token cap.

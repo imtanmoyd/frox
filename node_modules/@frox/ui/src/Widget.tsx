@@ -1,6 +1,6 @@
 import { Component, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ErrorInfo, type FormEvent, type PointerEvent, type ReactNode } from "react";
 import { useStore } from "zustand";
-import { createChatStore } from "@frox/core";
+import { createChatStore, prepareChatMessages } from "@frox/core";
 import type { AssistantSettings, ChatMessage, ChatThread, LLMStreamContentPart, PlatformAdapter, WidgetPosition } from "@frox/core";
 
 const SETTINGS_KEY = "assistant:settings";
@@ -30,6 +30,8 @@ type PetAction = typeof PET_ACTIONS[number]["id"];
 interface WidgetProps {
   platform: PlatformAdapter;
   siteHost: string;
+  enableVoice?: boolean;
+  offlineMessage?: string;
 }
 
 interface PendingImage {
@@ -199,7 +201,12 @@ function ChatItem({
   );
 }
 
-export function Widget({ platform, siteHost }: WidgetProps) {
+export function Widget({
+  platform,
+  siteHost,
+  enableVoice = true,
+  offlineMessage = "Connect a provider in Settings, or start your local engine. I’ll be right here when you’re ready."
+}: WidgetProps) {
   const store = useMemo(() => createChatStore(), []);
   const threads = useStore(store, (state) => state.threads);
   const activeThreadId = useStore(store, (state) => state.activeThreadId);
@@ -282,11 +289,11 @@ export function Widget({ platform, siteHost }: WidgetProps) {
     document.addEventListener("visibilitychange", onVisibilityChange);
     const onOpen = () => setOpen(true);
     window.addEventListener("frox-widget-open", onOpen);
-    const removeHotkey = platform.hotkeys.onPushToTalk(() => {
+    const removeHotkey = enableVoice ? platform.hotkeys.onPushToTalk(() => {
       setVoiceMode(true);
       setOpen(true);
       setBotState("listening");
-    }, settings.hotkey);
+    }, settings.hotkey) : () => undefined;
     return () => {
       alive = false;
       cancelStream.current?.();
@@ -384,7 +391,7 @@ export function Widget({ platform, siteHost }: WidgetProps) {
     });
     const targetThreadId = threadId;
     cancelStream.current = platform.messaging.stream(
-      { type: "assistant:stream", conversationId: targetThreadId, messages: history },
+      { type: "assistant:stream", conversationId: targetThreadId, messages: prepareChatMessages(history) },
       {
         onChunk: (text) => {
           const current = store.getState().threads.find((thread) => thread.id === targetThreadId)?.messages.find((message) => message.id === assistantMessage.id);
@@ -635,7 +642,7 @@ export function Widget({ platform, siteHost }: WidgetProps) {
           }}>×</button>
         </div>
         <p>{petNotice || (botState === "notification"
-          ? "Connect a provider in Settings, or start your local engine. I’ll be right here when you’re ready."
+          ? offlineMessage
           : "Hey! Need a hand with something? I’m just a tap away.")}</p>
         <button className="frox-bubble-chat" type="button" onClick={() => {
           setOpen(true);
@@ -700,7 +707,7 @@ export function Widget({ platform, siteHost }: WidgetProps) {
             <button className="frox-sidebar-settings" type="button" onClick={openSettings}>Settings</button>
           </aside>
           <main className="frox-conversation">
-            {voiceMode ? <div className="frox-voice-view">
+            {voiceMode && enableVoice ? <div className="frox-voice-view">
               <button className="frox-voice-back" type="button" onClick={() => { setVoiceMode(false); setBotState("idle"); }}>← Back to chat</button>
               <div className={`frox-voice-orb ${botState === "thinking" ? "is-active" : ""}`} aria-hidden="true"><span /><span /><span /></div>
               <h2>Voice mode</h2>
@@ -713,7 +720,7 @@ export function Widget({ platform, siteHost }: WidgetProps) {
                   <div className="frox-welcome-mark"><AssistantIcon skin={settings.skin} /></div>
                   <p className="frox-eyebrow">YOUR AI COMPANION</p>
                   <h1>What’s on your mind?</h1>
-                  <p className="frox-subtitle">{canConnect(settings) ? "Ask a question, explore an idea, or get something done." : "I’m here and ready. Add a provider key in Settings or connect the local engine."}</p>
+                  <p className="frox-subtitle">{canConnect(settings) ? "Ask a question, explore an idea, or get something done." : offlineMessage}</p>
                   <div className="frox-suggestions">
                     {["Help me brainstorm", "Explain something simply", "Write a quick draft"].map((item) => <button key={item} type="button" onClick={() => startStream(item)}>{item}<span>↗</span></button>)}
                   </div>
@@ -742,12 +749,12 @@ export function Widget({ platform, siteHost }: WidgetProps) {
                 {busy
                   ? <button className="frox-send-button is-stop" type="button" aria-label="Stop response" onClick={stopResponse}>■</button>
                   : <button className="frox-send-button" type="submit" disabled={!input.trim() && pendingImages.length === 0} aria-label="Send message">↑</button>}
-                <button className="frox-voice-button" type="button" aria-label="Open voice mode" onClick={() => { setVoiceMode(true); setBotState("listening"); }}>◉</button>
+                {enableVoice && <button className="frox-voice-button" type="button" aria-label="Open voice mode" onClick={() => { setVoiceMode(true); setBotState("listening"); }}>◉</button>}
               </form>
             </>}
           </main>
         </div>
-        <footer className="frox-footer"><span>Frox AI · responses may be inaccurate</span><button type="button" onClick={openVoicePage}>Voice settings</button></footer>
+        <footer className="frox-footer"><span>Frox AI · responses may be inaccurate</span>{enableVoice && <button type="button" onClick={openVoicePage}>Voice settings</button>}</footer>
       </section>}
     </div>
   );

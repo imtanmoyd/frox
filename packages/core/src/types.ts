@@ -50,5 +50,6 @@ export interface StreamOptions {
   apiKey: string;
   model: string;
   baseUrl: string;
+  maxOutputTokens?: number;
   signal?: AbortSignal;
 }

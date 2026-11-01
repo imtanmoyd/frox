@@ -3,23 +3,31 @@
 ## Folder map
 - `packages/core`: platform-independent chat types, store, provider adapters, and utilities.
 - `packages/ui`: reusable React widget, themes, and animations; no browser APIs.
+- `apps/web`: Vite public website and browser chat; its adapter uses namespaced browser storage and direct-to-provider streams.
 - `apps/extension`: MV3 manifest, content script, service worker, popup, and options/voice pages.
 - `apps/engine`: Python FastAPI local service; provider interfaces/router live under `src/frox_engine/providers`; local SQLite/FTS5 memory lives in `src/frox_engine/memory.py`.
-- `apps/desktop`: reserved for a future Electron shell.
+- `apps/desktop`: Electron host contract placeholder; no runtime/dependency until its IPC and credential boundary is implemented.
 - `.ailogs`: concise project status, decisions, features, fixes, and session notes.
+- `docs`: Vercel, app build, and contributor instructions.
 
 ## Intended message flow
-1. The top-frame content script mounts the reusable UI in a Shadow DOM and communicates through a platform adapter.
-2. UI/core use platform interfaces; the extension adapter implements storage, messages, and hotkeys with Chrome APIs.
-3. The service worker handles settings, protected storage, and direct provider streaming; provider keys are not sent to page scripts.
-4. Persisted extension storage is authoritative so service-worker restarts do not lose conversations or settings.
-5. The background probes the loopback engine for explicit text-only chat requests; Mode A remains available when the engine is absent or unsuitable. Image attachments use Mode A.
-6. Memory is local SQLite with built-in FTS5; only explicit engine chats trigger recall and save conversation history/facts. No page content is proactively sent.
-7. Engine `/bootstrap` is the only unauthenticated application route and returns a per-process token only to the exact configured extension Origin. All other API routes require `X-Frox-Token`.
-8. The provider router uses OpenAI-compatible streaming for OpenRouter, Groq, Google AI Studio, and Ollama. Ordered fallback and model rotation are configurable; bounded retries avoid sending partial responses to a second provider.
+1. The public Vite site and extension mount `packages/ui` inside a Shadow DOM and provide their own `PlatformAdapter`.
+2. The web adapter persists chats and settings under a `frox.web.` localStorage namespace. Its provider requests go directly from the visitor's browser to the selected provider; there is no Frox/Vercel chat proxy or shared API secret.
+3. Web settings explain that localStorage is not encrypted, restrict cleartext HTTP provider URLs to loopback, and leave microphone/voice disabled on the public site.
+4. The extension adapter implements storage and messages with Chrome APIs; its service worker owns provider keys and makes direct provider requests. Direct and engine-backed chats share the same concise system prompt and 512-token output cap.
+5. Persisted extension storage is authoritative so service-worker restarts do not lose conversations or settings.
+6. The background probes the loopback engine for explicit text-only chat requests; Mode A remains available when the engine is absent or unsuitable. Image attachments use Mode A.
+7. Memory is local SQLite with built-in FTS5; only explicit engine chats trigger recall and save conversation history/facts. No page content is proactively sent.
+8. Engine `/bootstrap` is the only unauthenticated application route and returns a per-process token only to the exact configured extension Origin. All other API routes require `X-Frox-Token`.
+9. The provider router uses OpenAI-compatible streaming for OpenRouter, Groq, Google AI Studio, and Ollama. Ordered fallback and model rotation are configurable; bounded retries avoid sending partial responses to a second provider.
 
 ## Decisions
 - Use a monorepo boundary between reusable `core`/`ui` packages and host-specific shells.
+- The root npm workspaces include `packages/*`, `apps/extension`, and `apps/web`; separate `dev/build:web` and `dev/build:extension` commands keep Vercel and MV3 outputs independent.
+- Vercel builds from repository root through `vercel.json` and emits `web-dist/`; the extension continues to emit `dist/` for Load unpacked.
+- The public landing page remains in `apps/web`; `docs/` contains project and deployment documentation rather than a second copy of the site.
+- `packages/core/src/conversation.ts` provides the shared short, emotionally considerate system prompt, 16-message history window, and 512-token output cap used by web and extension chats; the engine applies the same cap.
+- Browser web credentials and chats are local to the visitor's browser but not encrypted. Provider CORS support is provider-dependent; requests never pass through Frox/Vercel.
 - Use Shadow DOM to isolate host-page styles and widget styles.
 - Keep the idle companion visually small and floating; bubble/menu remain separate accessible overlays anchored to its saved position. Character changes go through a narrow background message so provider secrets are not rewritten by content scripts.
 - Use Vite with CRXJS to produce the MV3 extension bundle.

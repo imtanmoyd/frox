@@ -1,0 +1,160 @@
+:host {
+  all: initial;
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  contain: layout style;
+  pointer-events: none;
+}
+
+.frox-web-settings-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #07070bd9;
+  pointer-events: auto;
+  animation: frox-web-fade-in .18s ease-out both;
+}
+
+.frox-web-settings {
+  width: min(460px, 100%);
+  max-height: min(680px, calc(100dvh - 36px));
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid #ffffff20;
+  border-radius: 22px;
+  background: linear-gradient(155deg, #242230, #13131b 74%);
+  color: #f5f3ff;
+  box-shadow: 0 30px 90px #000b, 0 0 35px #a895ff20;
+  font: 400 13px/1.5 Inter, "Segoe UI", system-ui, sans-serif;
+}
+
+.frox-web-settings header,
+.frox-web-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.frox-web-settings header p {
+  margin: 0 0 3px;
+  color: #b8aaff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+
+.frox-web-settings h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -.04em;
+}
+
+.frox-web-settings-close {
+  width: 42px;
+  height: 42px;
+  border: 1px solid #ffffff18 !important;
+  border-radius: 13px !important;
+  background: #ffffff08 !important;
+  color: #fff;
+  font-size: 24px;
+}
+
+.frox-web-privacy,
+.frox-web-provider-note {
+  color: #aaa7b7;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.frox-web-privacy {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #8e7ae52b;
+  border-radius: 12px;
+  background: #9c87ff0b;
+}
+
+.frox-web-settings form {
+  display: grid;
+  gap: 12px;
+}
+
+.frox-web-settings label {
+  display: grid;
+  gap: 6px;
+  color: #e8e5f1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.frox-web-settings label input,
+.frox-web-settings label select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #ffffff19;
+  border-radius: 11px;
+  outline: none;
+  background: #0e0e15;
+  color: #f5f3ff;
+  font: inherit;
+}
+
+.frox-web-settings label input:focus,
+.frox-web-settings label select:focus {
+  border-color: #9e8aff;
+  box-shadow: 0 0 0 3px #a895ff20;
+}
+
+.frox-web-optional {
+  color: #9692a5;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.frox-web-provider-note { margin: 0; }
+.frox-web-settings-status { margin: 0; color: #a9f0d0; font-size: 11px; }
+.frox-web-settings-actions { margin-top: 4px; }
+
+.frox-web-settings-actions button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #ffffff20 !important;
+  border-radius: 11px !important;
+  background: #ffffff08 !important;
+  color: #f5f3ff;
+  font: 600 11px/1 Inter, "Segoe UI", system-ui, sans-serif;
+}
+
+.frox-web-settings-actions .frox-web-save {
+  border-color: transparent !important;
+  background: linear-gradient(110deg, #aa93ff, #63c7d4) !important;
+  color: #100e18;
+}
+
+.frox-web-settings-actions button:focus-visible,
+.frox-web-settings-close:focus-visible {
+  outline: 2px solid #71d7e8;
+  outline-offset: 3px;
+}
+
+@keyframes frox-web-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 420px) {
+  .frox-web-settings { padding: 18px; border-radius: 18px; }
+  .frox-web-settings-actions button { padding-inline: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frox-web-settings-backdrop { animation: none; }
+}

@@ -165,8 +165,11 @@ async def health() -> dict[str, str]:
 @protected_router.post("/chat")
 async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
     conversation_id = payload.conversation_id or uuid.uuid4().hex
-    original_messages = [message.model_dump() for message in payload.messages]
-    prompt_messages = list(original_messages)
+    request_messages = [message.model_dump() for message in payload.messages]
+    original_messages = [
+        message for message in request_messages if message["role"] != "system"
+    ]
+    prompt_messages = list(request_messages)
     last_user_message = next(
         message["content"]
         for message in reversed(original_messages)

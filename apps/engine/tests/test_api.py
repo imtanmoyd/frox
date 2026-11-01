@@ -120,7 +120,10 @@ async def test_chat_is_an_explicit_sse_error_when_no_provider_is_configured(
 
 @pytest.mark.anyio
 async def test_chat_streams_provider_events(tmp_path) -> None:
-    def handle(_: httpx.Request) -> httpx.Response:
+    provider_payload: dict[str, object] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        provider_payload.update(json.loads(request.content))
         return httpx.Response(
             200,
             headers={"Content-Type": "text/event-stream"},
@@ -153,10 +156,20 @@ async def test_chat_streams_provider_events(tmp_path) -> None:
             response = await test_client.post(
                 "/chat",
                 headers={"X-Frox-Token": app.state.startup_token},
-                json={"messages": [{"role": "user", "content": "Hello"}]},
+                json={
+                    "messages": [
+                        {"role": "system", "content": "Keep replies brief."},
+                        {"role": "user", "content": "Hello"},
+                    ]
+                },
             )
 
     assert response.status_code == 200
+    assert provider_payload["max_tokens"] == 512
+    assert provider_payload["messages"][0] == {
+        "role": "system",
+        "content": "Keep replies brief.",
+    }
     assert "event: meta" in response.text
     assert '"provider": "openrouter"' in response.text
     assert 'event: token\ndata: {"text": "hello"}' in response.text
@@ -209,6 +222,7 @@ async def test_chat_injects_local_recall_and_saves_completed_conversation(tmp_pa
                     "conversationId": "conversation-1",
                     "siteHost": "docs.python.org",
                     "messages": [
+                        {"role": "system", "content": "Be supportive and concise."},
                         {
                             "role": "user",
                             "content": "I prefer Python and pytest. Can you help with tests?",
@@ -221,6 +235,10 @@ async def test_chat_injects_local_recall_and_saves_completed_conversation(tmp_pa
     assert '"conversationId": "conversation-1"' in response.text
     assert any(
         message["role"] == "system" and "I prefer Python tests." in message["content"]
+        for message in prompt_messages
+    )
+    assert any(
+        message["role"] == "system" and "Be supportive and concise." in message["content"]
         for message in prompt_messages
     )
     exported = memory_store.export()

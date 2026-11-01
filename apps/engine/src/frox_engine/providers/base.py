@@ -54,7 +54,12 @@ class OpenAICompatibleProvider:
                 "POST",
                 endpoint,
                 headers=headers,
-                json={"model": model, "messages": messages, "stream": True},
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": True,
+                    "max_tokens": 512,
+                },
             ) as response:
                 if response.status_code != 200:
                     raise ProviderFailure(

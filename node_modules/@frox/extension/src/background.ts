@@ -1,4 +1,4 @@
-import { createProvider } from "@frox/core";
+import { createProvider, MAX_CHAT_OUTPUT_TOKENS } from "@frox/core";
 import type { AssistantSettings, LLMContentPart, LLMMessage, SkinName } from "@frox/core";
 import {
   getEngineStatus,
@@ -319,6 +319,7 @@ chrome.runtime.onConnect.addListener((port) => {
           apiKey: settings.apiKey,
           model: settings.model,
           baseUrl: settings.baseUrl,
+          maxOutputTokens: MAX_CHAT_OUTPUT_TOKENS,
           signal: controller.signal
         })) {
           if (connected) port.postMessage({ type: "chunk", text });

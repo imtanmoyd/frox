@@ -54,7 +54,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const response = await fetch(endpoint, {
       method: "POST",
       headers,
-      body: JSON.stringify({ model: options.model, messages, stream: true }),
+      body: JSON.stringify({
+        model: options.model,
+        messages,
+        stream: true,
+        ...(options.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {})
+      }),
       signal: options.signal
     });
     yield* readSse(response, (data) => {
@@ -93,7 +98,7 @@ export class AnthropicProvider implements LLMProvider {
       },
       body: JSON.stringify({
         model: options.model,
-        max_tokens: 2048,
+        max_tokens: options.maxOutputTokens ?? 2048,
         stream: true,
         ...(system ? { system } : {}),
         messages: anthropicMessages

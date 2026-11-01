@@ -13,8 +13,8 @@
 | Voice transcription and speech playback | planned |
 | Settings, site blocklist, themes/skins, crash log, reset/clear | done |
 | Popup site toggle and open-chat/settings controls | done |
-| Desktop-shell placeholder | done |
-| Responsive static landing page with local preview and GitHub Pages guide | done |
+| Desktop-shell architecture placeholder (Electron app itself not implemented) | done |
+| Responsive Vite website with shared animated bot, browser-local multi-chat, BYOK settings, and Vercel build | done |
 | Core/engine tests, lint, typecheck, and MV3 build | done |
 | Python 3.11 FastAPI loopback engine skeleton | done |
 | Startup token, extension-origin bootstrap, and strict CORS | done |

@@ -4,11 +4,16 @@
   "version": "0.1.0",
   "workspaces": [
     "packages/*",
-    "apps/extension"
+    "apps/extension",
+    "apps/web"
   ],
   "scripts": {
     "dev": "vite --config apps/extension/vite.config.ts",
     "build": "vite build --config apps/extension/vite.config.ts",
+    "dev:extension": "vite --config apps/extension/vite.config.ts",
+    "build:extension": "vite build --config apps/extension/vite.config.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "build:web": "vite build --config apps/web/vite.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

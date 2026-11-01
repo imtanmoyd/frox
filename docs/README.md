@@ -1,32 +1,45 @@
-# Frox landing page
+# Build and deployment
 
-Static, dependency-free GitHub Pages site. Preview it locally from the repo root:
+The site now lives in `apps/web` and reuses the shared React widget from
+`packages/ui`. Run it locally from the repository root:
 
 ```powershell
-py -m http.server 4173 --directory docs
+npm ci
+npm run dev:web
 ```
 
-Then open `http://127.0.0.1:4173`.
+Build the website with `npm run build:web`; Vite writes the static bundle to
+`web-dist/`. The public chat is a browser client: it stores its conversations
+and optional provider key in local storage and sends requests directly to the
+provider the visitor selects. There is no Frox/Vercel chat API or shared
+provider secret.
 
-To publish free on GitHub Pages, open the repository's **Settings → Pages**,
-choose **Deploy from a branch**, select `main` and the `/docs` folder, and save.
-GitHub publishes the project site at `https://imtanmoyd.github.io/frox/`.
+## Vercel
 
-## Deploy to Vercel
+Import `imtanmoyd/frox` and use:
 
-1. Sign in at [Vercel](https://vercel.com/new) and import `imtanmoyd/frox`
-   from GitHub (authorize GitHub access if prompted).
-2. Set **Project Name** to `froxva` and **Root Directory** to `docs`.
-3. Keep the framework preset as **Other** with no build command; the landing
-   page is plain HTML/CSS.
-4. Deploy. In **Project → Settings → Domains**, confirm or add
-   `froxva.vercel.app` if it is available in your account.
-5. Push future landing-page changes to the connected branch for automatic
-   deployments.
+- **Project name:** `froxva` (if available)
+- **Root directory:** repository root (`.`), not `docs` or `apps/web`
+- **Build command:** `npm run build:web`
+- **Output directory:** `web-dist`
+- **Install command:** `npm install`
 
-The Chrome Web Store and desktop download links intentionally remain
-unpublished until there is an approved store listing or a signed desktop build.
+These settings are also recorded in the root `vercel.json`. Confirm or add
+`froxva.vercel.app` under **Project → Settings → Domains** after the first
+deployment. Vercel authentication and project/domain assignment still require
+the account owner; no deployment has been created from this repository yet.
 
-The repository does not currently have a root `LICENSE` file. Publicly visible
-source is not automatically licensed for reuse or redistribution; choose and
-add a license before describing code reuse rights as open-source licensed.
+## Chrome extension
+
+```powershell
+npm run build:extension
+```
+
+Load the generated `dist/` folder from `chrome://extensions` with Developer
+mode enabled. The extension adapter keeps provider keys in extension storage
+and makes provider requests from its service worker.
+
+## Desktop
+
+The Electron shell is not implemented yet. See [apps/desktop/README.md](../apps/desktop/README.md)
+for the intended adapter and security boundary.
